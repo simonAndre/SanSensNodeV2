@@ -27,7 +27,7 @@ unsigned int SanDataCollector::getbufferSize()
 
 void SanDataCollector::Add_s(const char *key, const char *value)
 {
-    _jsondoc[key] = *value;
+    _jsondoc[key] = value;
 }
 void SanDataCollector::Add_i(const char *key, int value)
 {
