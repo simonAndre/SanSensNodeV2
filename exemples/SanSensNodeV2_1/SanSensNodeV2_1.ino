@@ -16,10 +16,38 @@ void setupdevice();
 DHT dht(DHTPIN, DHTTYPE, 30);
 SanSensNodeV2 _sensorNode("atp1", "serenandre", "moustik77", "192.168.2.151", true, G_DURATION, P_FACTOR);
 
-void setupdevice()
+int _dhtWarmupTime = DHT_WAITTIMEMS;
+
+bool dht_setup()
 {
     Serial.println("dht begin");
     dht.begin(DHTPIN);
+    return true;
+}
+bool led1On()
+{
+    digitalWrite(LED1PIN, HIGH);
+    _sensorNode.waitListeningIOevents(250);
+    digitalWrite(LED1PIN, LOW);
+    return false;
+}
+bool led2On()
+{
+    digitalWrite(LED2PIN, HIGH);
+    _sensorNode.waitListeningIOevents(250);
+    digitalWrite(LED2PIN, LOW);
+    return false;
+}
+void setupdevice()
+{
+    //hook up additional menu entries
+    MenuitemHierarchy *device_menu = _sensorNode.getDeviceMenu();
+    device_menu->addMenuitemUpdater("DHT warmup time (ms)", &_dhtWarmupTime);
+    device_menu->addMenuitemCallback("DHT reset", dht_setup);
+    device_menu->addMenuitemCallback("tilt led 1", led1On);
+    device_menu->addMenuitemCallback("tilt led 2", led2On);
+
+    dht_setup();
 }
 
 void setup()
@@ -37,7 +65,7 @@ void loop()
 
 bool collectdatadht(SanDataCollector collector)
 {
-    _sensorNode.waitListeningIOevents(DHT_WAITTIMEMS);
+    _sensorNode.waitListeningIOevents(_dhtWarmupTime);
     //read humidity
     float h = dht.readHumidity();
     // Read temperature as Celsius

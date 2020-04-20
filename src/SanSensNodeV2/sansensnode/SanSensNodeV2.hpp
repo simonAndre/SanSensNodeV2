@@ -9,6 +9,7 @@ typedef bool (*pf_callback_inputmessage)(SanCodedStrings);
 
 static char _menuswitch_buff[SANSENSNODE_STRING_BUFFER_SIZE];
 static char _sansensnodeversion[10];
+static size_t _lastbuffercapacity;
 
 static WiFiClient __espClient;
 static RTC_DATA_ATTR int _bootCount = 0;      // store "boot" (restart after sleep) counting (in the RTC resilient RAM memory)
@@ -23,13 +24,17 @@ static RTC_DATA_ATTR uint8_t _waitforMqtt;    // nb of loop to wait for mqtt ser
 static RTC_DATA_ATTR int _GcycleIx;           // store the current cycle index (G or measurement cycle)
 static RTC_DATA_ATTR int _EXPwifiwait;        // EXPERIMENTAL : temps d'attente suite allmuage wifi pour que le MQTT puisse répondre
 static RTC_DATA_ATTR int _EXPmqttattemps;     // EXPERIMENTAL : nb de tentatives pour connexion au server mqtt
+static RTC_DATA_ATTR uint8_t _wifiMode=4;       // WIFI MODE :    0=WIFI_MODE_NULL (no WIFI),1=WIFI_MODE_STA (WiFi station mode),2=WIFI_MODE_AP (WiFi soft-AP mode)
+                                            // 3=WIFI_MODE_APSTA (WiFi station + soft-AP mode) 4=WIFI_MODE_MAX
 static RTC_DATA_ATTR bool _verboseMode;
 static pf_callback_inputmessage _inputmessageCallback;
 
-enum Menukey
+enum MenusKeys
 {
-    sleepmode,
-    verboseMode
+    device,
+    measure,
+    publi,
+    infos
 };
 
 class SanSensNodeV2
@@ -102,7 +107,7 @@ public:
         }
         // esp_sleep_enable_timer_wakeup(_delayloop * uS_TO_S_FACTOR);
 
-        if (_setupdevicesCallback != NULL)
+        if (_setupdevicesCallback)
             _setupdevicesCallback();
         else
             IoHelpers::IOdisplayLn("no _setupdevicesCallback defined");
@@ -118,6 +123,8 @@ public:
         _measurementAttenmpts = 1;
 
         SanDataCollector datacollector;
+        _lastbuffercapacity = datacollector.getbufferSize();
+
         IoHelpers::IOdisplayLn("measure");
         while (!SanSensNodeV2::collectMeasurement(datacollector) && _measurementAttenmpts <= _maxMeasurementAttenmpts)
         {
@@ -128,7 +135,7 @@ public:
         if (_GcycleIx % _Pfactor == 0)
             SanSensNodeV2::mqttpubsub(datacollector);
 
-        void waitNextG();
+        waitNextG();
     }
 
     /**
@@ -144,7 +151,7 @@ public:
         {
             if (i % (1000 / SANSENSNODE_WAITLOOPDELAYMS) == 0)
                 IoHelpers::IOdisplay("."); //display 1 . every 500ms
-            consolemenu.LoopCheckSerial();
+            _consolemenu->LoopCheckSerial();
             delay(SANSENSNODE_WAITLOOPDELAYMS);
         }
     }
@@ -155,6 +162,7 @@ public:
  */
     void waitNextG()
     {
+
         if (_awakemode)
         {
             IoHelpers::IOdisplay("Wait for s");
@@ -213,19 +221,29 @@ public:
         return _sansensnodeversion;
     }
 
+    MenuitemHierarchy *getDeviceMenu()
+    {
+        return this->_device_menu;
+    }
+
+    // Menubase *getDeviceSubMenu()
+    // {
+    //     return this->consolemenu;
+    // }
+
 private:
     PubSubClient client;
 
     bool initStringValue(const char *menuname);
     bool DisplayStringValue(const char *menuname);
-    Menu consolemenu = Menu();
-
-    char *_nodename, *_ssid, *_password, *_mqtt_server;
+    Menubase *_consolemenu;
+    MenuitemHierarchy *_device_menu;
+    char *_nodename{nullptr}, *_ssid{nullptr}, *_password{nullptr}, *_mqtt_server{nullptr};
     uint8_t _maxMeasurementAttenmpts, _measurementAttenmpts;
     pf_callback_collectdata _collectdataCallback;
     pf_callback_setupdevices _setupdevicesCallback;
-    const char *_mqttTopicBaseName = "/ssnet/";
-    const char *_lostTopic = "/ssnet/lost"; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
+    const char *_mqttTopicBaseName{"/ssnet/"};
+    const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
 
     bool mqttConnect()
     {
@@ -286,7 +304,7 @@ private:
     {
         if (!collectMeasurement_internal(dc))
             return false;
-        if (_collectdataCallback != NULL)
+        if (_collectdataCallback)
         {
             if (!_collectdataCallback(dc))
                 return false;
@@ -300,6 +318,7 @@ private:
     // publish and subscribe to the respective MQTT chanels (open the connection and close after)
     bool mqttpubsub(SanDataCollector dc)
     {
+        uint32_t m0 = millis();
         Setup_wifi();
         if (!client.connected())
             if (!mqttConnect())
@@ -324,11 +343,17 @@ private:
         IoHelpers::IOdisplayLn((int)size);
         client.publish(outopic.c_str(), buffer, true);
         IoHelpers::IOdisplay("message: ");
-        IoHelpers::IOdisplayLn(buffer);
+        IoHelpers::IOdisplayLn((char *)buffer);
         IoHelpers::IOdisplayLn("publication mqtt OK");
 
-        return WaitforMqtt(_waitforMqtt);
+        bool r = WaitforMqtt(_waitforMqtt);
         wifiOff();
+
+        IoHelpers::IOdisplay("wifi was on for ");
+        IoHelpers::IOdisplay(millis() - m0);
+        IoHelpers::IOdisplay("ms, WaitforMqtt = ");
+        IoHelpers::IOdisplayLn(r);
+        return r;
     }
 
     void Setup_wifi()
@@ -341,6 +366,7 @@ private:
         IoHelpers::IOdisplay(SanSensNodeV2::_ssid);
 
         WiFi.begin(SanSensNodeV2::_ssid, SanSensNodeV2::_password);
+        WiFi.mode((wifi_mode_t)_wifiMode);
         int nb = 0;
         while (WiFi.status() != WL_CONNECTED && nb++ < _wifitrialsmax)
         {
@@ -371,27 +397,34 @@ private:
 
     void setupSerialMenu()
     {
+        _consolemenu = new Menu<20>();
         //define options
         MenuOptions menuoptions;
         menuoptions.addBack = true;
         menuoptions.addExitForEachLevel = true;
-        consolemenu.setOptions(menuoptions);
+        _consolemenu->setOptions(menuoptions);
         // menus & submenus definition
         // root menus
-        ushort menumeasure = consolemenu.addHierarchyMenuitem("measure", 0);
-        ushort menupubli = consolemenu.addHierarchyMenuitem("publication", 0);
-        ushort menuinfos = consolemenu.addHierarchyMenuitem("infos", 0);
-        consolemenu.addDynamicCallbackMenuitem(menu_switchs_display, menu_switchs, menupubli, (ushort)Menukey::sleepmode);
-        consolemenu.addDynamicCallbackMenuitem(menu_switchs_display, menu_switchs, menupubli, (ushort)Menukey::verboseMode);
-        consolemenu.addUpdaterMenuitem("set G", menumeasure, &_G_seconds, 3);
-        consolemenu.addUpdaterMenuitem("set P", menupubli, &_Pfactor, 3);
-        consolemenu.addUpdaterMenuitem("wait for mqtt loops", menupubli, &_waitforMqtt, 3);
-        consolemenu.addUpdaterMenuitem("wifiwait", menupubli, &_EXPwifiwait, 2);
-        consolemenu.addUpdaterMenuitem("wifiattemps", menupubli, &_EXPmqttattemps, 2);
 
-        consolemenu.addCallbackMenuitem("build infos", buildInfos, menuinfos);
-        consolemenu.addCallbackMenuitem("lib version", libVersion, menuinfos);
-        consolemenu.addCallbackMenuitem("RT infos", rtInfos, menuinfos);
+        MenuitemHierarchy *root = _consolemenu->getRootMenu();
+        _device_menu = root->addMenuitemHierarchy("device");
+        MenuitemHierarchy *measure_menu = root->addMenuitemHierarchy("measure");
+        MenuitemHierarchy *publication_menu = root->addMenuitemHierarchy("publication");
+        MenuitemHierarchy *infos_menu = root->addMenuitemHierarchy("infos");
+
+        publication_menu->addMenuitemUpdater("awake mode", &_awakemode);
+        publication_menu->addMenuitemUpdater("verbose mode", &_verboseMode);
+
+        measure_menu->addMenuitemUpdater("set G", &_G_seconds);
+        publication_menu->addMenuitemUpdater("set P", &_Pfactor);
+        publication_menu->addMenuitemUpdater("wait for mqtt loops", &_waitforMqtt);
+        publication_menu->addMenuitemUpdater("wifiwait", &_EXPwifiwait);
+        publication_menu->addMenuitemUpdater("wifiattemps", &_EXPmqttattemps);
+        publication_menu->addMenuitemUpdater("wifi mode (1 to 4)", &_wifiMode);
+
+        infos_menu->addMenuitemCallback("build infos", buildInfos);
+        infos_menu->addMenuitemCallback("lib version", libVersion);
+        infos_menu->addMenuitemCallback("RT infos", rtInfos);
     }
 
     bool collectMeasurement_internal(SanDataCollector dc)
@@ -467,7 +500,7 @@ private:
         pyldic.TryParseValue_b("details", &_verboseMode);
         pyldic.TryParseValue_i("wifiwait", &_EXPwifiwait);
         pyldic.TryParseValue_i("wifiattemps", &_EXPmqttattemps);
-        if (_inputmessageCallback != NULL)
+        if (_inputmessageCallback)
             return _inputmessageCallback(pyldic);
         else
             IoHelpers::IOdisplayLn("no _inputmessageCallback defined");
@@ -483,57 +516,18 @@ private:
         IoHelpers::IOdisplayLn(__cplusplus);
         IoHelpers::IOdisplay("build time :");
         IoHelpers::IOdisplayLn(__TIMESTAMP__);
+        IoHelpers::IOdisplay("SanSensNodeV2 V:");
+        IoHelpers::IOdisplayLn(getVersion());
         IoHelpers::IOdisplay("consoleMenu V:");
-        IoHelpers::IOdisplayLn(Menu::getVersion());
+        IoHelpers::IOdisplayLn(Menubase::getVersion());
         return false;
     }
-    static bool libVersion()
-    {
-        IoHelpers::IOdisplay("consoleMenu V:");
-        IoHelpers::IOdisplayLn(getVersion());
-    }
+
     static bool rtInfos()
     {
         IoHelpers::IOdisplay("cpu freq:");
         IoHelpers::IOdisplayLn(getCpuFrequencyMhz());
-    }
-
-    static const char *
-    menu_switchs_display(ushort menukey)
-    {
-        switch (menukey)
-        {
-        case Menukey::sleepmode:
-            if (_awakemode)
-                strcpy(_menuswitch_buff, "switch to sleep mode");
-            else
-                strcpy(_menuswitch_buff, "switch to awake mode");
-            break;
-        case Menukey::verboseMode:
-            if (_verboseMode)
-                strcpy(_menuswitch_buff, "switch verbose mode OFF");
-            else
-                strcpy(_menuswitch_buff, "switch verbose mode ON");
-            break;
-        default:
-            throw std::runtime_error("menu key not implemented");
-        }
-        return _menuswitch_buff;
-    }
-    static bool menu_switchs(ushort menukey, const char *menuname)
-    {
-        switch (menukey)
-        {
-        case Menukey::sleepmode:
-            _awakemode = !_awakemode;
-            break;
-        case Menukey::verboseMode:
-            _verboseMode = !_verboseMode;
-            break;
-        default:
-            throw std::runtime_error("menu key not implemented");
-        }
-        return false;
-    }
+        IoHelpers::IOdisplay("buffer capacity:");
+        IoHelpers::IOdisplayLn(_lastbuffercapacity);
 };
 } // namespace SANSENSNODE_NAMESPACE
