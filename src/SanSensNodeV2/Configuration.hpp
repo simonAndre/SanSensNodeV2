@@ -7,6 +7,7 @@
 #define SANSENSNODE_MQTTPORT 1883
 #define SANSENSNODE_LOWENERGYFACTOR 3
 #define SANSENSNODE_MQTTATTEMPTSNB 3
+#define SANSENSNODE_STARTINGCPUFREQ 160
 #define SANSENSNODE_STRING_BUFFER_SIZE 32
 #define SANSENSNODE_STARTSAWAKEN 1      // 1=start in awake mode for the first boot
 #define SANSENSNODE_WAITLOOPDELAYMS 100 // define the atomic wait time in ms between 2 serial checks, see sanSensNet::waitWithSerialCheck method

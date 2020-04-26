@@ -3,13 +3,14 @@
 namespace SANSENSNODE_NAMESPACE
 {
 
-typedef bool (*pf_callback_collectdata)(SanDataCollector);
+typedef bool (*pf_callback_collectdata)(SanDataCollector *);
 typedef void (*pf_callback_setupdevices)(void);
 typedef bool (*pf_callback_inputmessage)(SanCodedStrings);
 
 static char _menuswitch_buff[SANSENSNODE_STRING_BUFFER_SIZE];
 static char _sansensnodeversion[10];
 static size_t _lastbuffercapacity;
+static bool _breakCurrentLoop = false;
 
 static WiFiClient __espClient;
 static RTC_DATA_ATTR int _bootCount = 0;      // store "boot" (restart after sleep) counting (in the RTC resilient RAM memory)
@@ -18,24 +19,17 @@ static RTC_DATA_ATTR bool _awakemode;         // while in awake mode => don't go
 static RTC_DATA_ATTR int _G_seconds;          // measurement cycle time ie: sleep time (in seconds) (in awake mode and sleep mode)
 static RTC_DATA_ATTR int _Pfactor;            // publication and mqtt connection frequency (in G multiples)
 static RTC_DATA_ATTR bool _serial;            // false to disable output serial log
-static RTC_DATA_ATTR bool _lowEnergyMode;     // false to disable output serial log
+static RTC_DATA_ATTR uint8_t _cpuFreq = SANSENSNODE_STARTINGCPUFREQ; // CPU operating frequency
 static RTC_DATA_ATTR uint8_t _wifitrialsmax;  // nb max of attemps to check the wifi network for a wakeup cycle
 static RTC_DATA_ATTR uint8_t _waitforMqtt;    // nb of loop to wait for mqtt server answer
 static RTC_DATA_ATTR int _GcycleIx;           // store the current cycle index (G or measurement cycle)
 static RTC_DATA_ATTR int _EXPwifiwait;        // EXPERIMENTAL : temps d'attente suite allmuage wifi pour que le MQTT puisse répondre
 static RTC_DATA_ATTR int _EXPmqttattemps;     // EXPERIMENTAL : nb de tentatives pour connexion au server mqtt
-static RTC_DATA_ATTR uint8_t _wifiMode=4;       // WIFI MODE :    0=WIFI_MODE_NULL (no WIFI),1=WIFI_MODE_STA (WiFi station mode),2=WIFI_MODE_AP (WiFi soft-AP mode)
-                                            // 3=WIFI_MODE_APSTA (WiFi station + soft-AP mode) 4=WIFI_MODE_MAX
+static RTC_DATA_ATTR uint8_t _wifiMode = 4;   // WIFI MODE :    0=WIFI_MODE_NULL (no WIFI),1=WIFI_MODE_STA (WiFi station mode),2=WIFI_MODE_AP (WiFi soft-AP mode)
+                                              // 3=WIFI_MODE_APSTA (WiFi station + soft-AP mode) 4=WIFI_MODE_MAX
+static RTC_DATA_ATTR bool _EXPusesandatacollector = true;
 static RTC_DATA_ATTR bool _verboseMode;
 static pf_callback_inputmessage _inputmessageCallback;
-
-enum MenusKeys
-{
-    device,
-    measure,
-    publi,
-    infos
-};
 
 class SanSensNodeV2
 {
@@ -76,7 +70,8 @@ public:
             SanSensNodeV2::_measurementAttenmpts = 0;
             _G_seconds = G;
             _Pfactor = Pfactor;
-            _lowEnergyMode = lowEnergyMode;
+             if(lowEnergyMode)
+                 _cpuFreq = 80;
             _wifitrialsmax = SANSENSNODE_WIFITRIALSINIT;
             if (lowEnergyMode)
                 _wifitrialsmax = _wifitrialsmax / SANSENSNODE_LOWENERGYFACTOR;
@@ -87,11 +82,10 @@ public:
         setupSerialMenu();
         ++_bootCount;
     }
-
+  
     void Setup()
     {
-        if (_lowEnergyMode)
-            setCpuFrequencyMhz(80); // set the lowest frequency possible to save energy (we)
+        SetEnergyMode();
         if (_serial)
         {
             delay(500); // pour attendre port serie
@@ -104,6 +98,8 @@ public:
             IoHelpers::IOdisplayLn(_G_seconds);
             IoHelpers::IOdisplay("P factor is ");
             IoHelpers::IOdisplayLn(_Pfactor);
+            IoHelpers::IOdisplay("WIFI mode=");
+            IoHelpers::IOdisplayLn(_wifiMode);
         }
         // esp_sleep_enable_timer_wakeup(_delayloop * uS_TO_S_FACTOR);
 
@@ -116,14 +112,18 @@ public:
     void Loop()
     {
         _GcycleIx++;
+        _breakCurrentLoop = false;
 
         IoHelpers::IOdisplay("G index:");
         IoHelpers::IOdisplayLn(_GcycleIx);
 
         _measurementAttenmpts = 1;
 
-        SanDataCollector datacollector;
-        _lastbuffercapacity = datacollector.getbufferSize();
+        SanDataCollector *datacollector{nullptr};
+        if (_EXPusesandatacollector)
+            datacollector = new SanDataCollector();
+
+        _lastbuffercapacity = datacollector->getbufferSize();
 
         IoHelpers::IOdisplayLn("measure");
         while (!SanSensNodeV2::collectMeasurement(datacollector) && _measurementAttenmpts <= _maxMeasurementAttenmpts)
@@ -132,10 +132,10 @@ public:
         }
         IoHelpers::IOdisplayLn("measure end");
 
-        if (_GcycleIx % _Pfactor == 0)
+        if (_wifiMode > 0 && datacollector && _GcycleIx % _Pfactor == 0)
             SanSensNodeV2::mqttpubsub(datacollector);
-
-        waitNextG();
+        if (!_breakCurrentLoop)
+            waitNextG();
     }
 
     /**
@@ -153,6 +153,8 @@ public:
                 IoHelpers::IOdisplay("."); //display 1 . every 500ms
             _consolemenu->LoopCheckSerial();
             delay(SANSENSNODE_WAITLOOPDELAYMS);
+            if(_breakCurrentLoop)
+                break;
         }
     }
 
@@ -217,19 +219,14 @@ public:
 
     static char *getVersion()
     {
-        sprintf(_sansensnodeversion, "%i.%i.%i", CONSOLEMENU_VERSION_MAJOR, CONSOLEMENU_VERSION_MINOR, CONSOLEMENU_VERSION_REVISION);
+        sprintf(_sansensnodeversion, "%i.%i.%i", SANSENSNODE_VERSION_MAJOR, SANSENSNODE_VERSION_MINOR, SANSENSNODE_VERSION_REVISION);
         return _sansensnodeversion;
     }
 
-    MenuitemHierarchy *getDeviceMenu()
+    SubMenu *getDeviceMenu()
     {
         return this->_device_menu;
     }
-
-    // Menubase *getDeviceSubMenu()
-    // {
-    //     return this->consolemenu;
-    // }
 
 private:
     PubSubClient client;
@@ -237,7 +234,7 @@ private:
     bool initStringValue(const char *menuname);
     bool DisplayStringValue(const char *menuname);
     Menubase *_consolemenu;
-    MenuitemHierarchy *_device_menu;
+    SubMenu *_device_menu;
     char *_nodename{nullptr}, *_ssid{nullptr}, *_password{nullptr}, *_mqtt_server{nullptr};
     uint8_t _maxMeasurementAttenmpts, _measurementAttenmpts;
     pf_callback_collectdata _collectdataCallback;
@@ -300,9 +297,9 @@ private:
         return true;
     }
 
-    bool collectMeasurement(SanDataCollector dc)
+    bool collectMeasurement(SanDataCollector *dc)
     {
-        if (!collectMeasurement_internal(dc))
+        if (dc && !collectMeasurement_internal(dc))
             return false;
         if (_collectdataCallback)
         {
@@ -316,7 +313,7 @@ private:
     }
 
     // publish and subscribe to the respective MQTT chanels (open the connection and close after)
-    bool mqttpubsub(SanDataCollector dc)
+    bool mqttpubsub(SanDataCollector *dc)
     {
         uint32_t m0 = millis();
         Setup_wifi();
@@ -327,25 +324,26 @@ private:
         mqttSubscribe(); // todo : action en cas de défaut de souscription??
 
         // WaitforMqtt(15); // to wait for incoming messages
+        if (dc)
+        {
+            if (_measurementAttenmpts >= _maxMeasurementAttenmpts)
+                dc->Add_b("SensorIssue", true);
 
-        if (_measurementAttenmpts >= _maxMeasurementAttenmpts)
-            dc.Add_b("SensorIssue", true);
+            char buffer[dc->getbufferSize()];
+            size_t size = dc->Serialize(buffer);
 
-        char buffer[dc.getbufferSize()];
-        size_t size = dc.Serialize(buffer);
-
-        std::string outopic(SanSensNodeV2::_mqttTopicBaseName);
-        outopic.append(_nodename);
-        outopic.append("/out");
-        IoHelpers::IOdisplay("publish on ");
-        IoHelpers::IOdisplay(outopic.c_str());
-        IoHelpers::IOdisplay(", taille message: ");
-        IoHelpers::IOdisplayLn((int)size);
-        client.publish(outopic.c_str(), buffer, true);
-        IoHelpers::IOdisplay("message: ");
-        IoHelpers::IOdisplayLn((char *)buffer);
-        IoHelpers::IOdisplayLn("publication mqtt OK");
-
+            std::string outopic(SanSensNodeV2::_mqttTopicBaseName);
+            outopic.append(_nodename);
+            outopic.append("/out");
+            IoHelpers::IOdisplay("publish on ");
+            IoHelpers::IOdisplay(outopic.c_str());
+            IoHelpers::IOdisplay(", taille message: ");
+            IoHelpers::IOdisplayLn((int)size);
+            client.publish(outopic.c_str(), buffer, true);
+            IoHelpers::IOdisplay("message: ");
+            IoHelpers::IOdisplayLn((char *)buffer);
+            IoHelpers::IOdisplayLn("publication mqtt OK");
+        }
         bool r = WaitforMqtt(_waitforMqtt);
         wifiOff();
 
@@ -397,56 +395,66 @@ private:
 
     void setupSerialMenu()
     {
-        _consolemenu = new Menu<20>();
+        _consolemenu = new Menu<25>();      //21 menu-entries in this class and 4 more in the sketch (todo : to template)
         //define options
         MenuOptions menuoptions;
         menuoptions.addBack = true;
         menuoptions.addExitForEachLevel = true;
+        menuoptions.expirationTimeSec = 120;
         _consolemenu->setOptions(menuoptions);
         // menus & submenus definition
         // root menus
 
-        MenuitemHierarchy *root = _consolemenu->getRootMenu();
-        _device_menu = root->addMenuitemHierarchy("device");
-        MenuitemHierarchy *measure_menu = root->addMenuitemHierarchy("measure");
-        MenuitemHierarchy *publication_menu = root->addMenuitemHierarchy("publication");
-        MenuitemHierarchy *infos_menu = root->addMenuitemHierarchy("infos");
+        SubMenu *root = _consolemenu->getRootMenu();
+        _device_menu = root->addSubMenu("device");
+        SubMenu *measure_menu = root->addSubMenu("measure");
+        SubMenu *publication_menu = root->addSubMenu("publication");
+        SubMenu *infos_menu = root->addSubMenu("infos");
 
-        publication_menu->addMenuitemUpdater("awake mode", &_awakemode);
+        publication_menu->addMenuitemUpdater("awake mode", &_awakemode)->addCallback(breakLoop);
         publication_menu->addMenuitemUpdater("verbose mode", &_verboseMode);
 
-        measure_menu->addMenuitemUpdater("set G", &_G_seconds);
+        measure_menu->addMenuitemUpdater("set G", &_G_seconds)->addCallback(breakLoop);
         publication_menu->addMenuitemUpdater("set P", &_Pfactor);
         publication_menu->addMenuitemUpdater("wait for mqtt loops", &_waitforMqtt);
         publication_menu->addMenuitemUpdater("wifiwait", &_EXPwifiwait);
         publication_menu->addMenuitemUpdater("wifiattemps", &_EXPmqttattemps);
         publication_menu->addMenuitemUpdater("wifi mode (1 to 4)", &_wifiMode);
+        publication_menu->addMenuitemUpdater("use sandatacollector", &_EXPusesandatacollector);
+
+        SubMenu *smfreq = _device_menu->addSubMenu("set CPU freq")->addCallbackToChilds(SetEnergyMode)->addCallbackToChilds(breakLoop);
+        smfreq->addMenuitem()->SetLabel("80 Mhz")->addLambda([]() { _cpuFreq = 80; });
+        smfreq->addMenuitem()->SetLabel("160 Mhz")->addLambda([]() { _cpuFreq = 160; });
+        smfreq->addMenuitem()->SetLabel("240 Mhz")->addLambda([]() { _cpuFreq = 240; });
+
+        _device_menu->addMenuitemCallback("break loop", breakLoop);
 
         infos_menu->addMenuitemCallback("build infos", buildInfos);
-        infos_menu->addMenuitemCallback("lib version", libVersion);
         infos_menu->addMenuitemCallback("RT infos", rtInfos);
     }
 
-    bool collectMeasurement_internal(SanDataCollector dc)
+    bool collectMeasurement_internal(SanDataCollector *dc)
     {
+        if (!dc)
+            return false;
         //collect data and fill _datacollector with it
-        dc.Add_s("device", (const char *)_nodename);
-        dc.Add_i("boot", _bootCount);
+        dc->Add_s("device", (const char *)_nodename);
+        dc->Add_i("boot", _bootCount);
         double timeSinceStartup = esp_timer_get_time() / 1000000;
-        dc.Add_d("uptime", timeSinceStartup);
-        dc.Add_i("measurements", _measurementAttenmpts);
+        dc->Add_d("uptime", timeSinceStartup);
+        dc->Add_i("measurements", _measurementAttenmpts);
         if (_verboseMode)
         {
-            dc.Add_i("G", _G_seconds);
-            dc.Add_i("P", _Pfactor);
-            dc.Add_i("freeram", (int)heap_caps_get_free_size(MALLOC_CAP_8BIT));
-            dc.Add_i("Gcylcle", _GcycleIx);
-            dc.Add_b("LowEnergyMode", _lowEnergyMode);
-            dc.Add_b("Serial", _serial);
-            dc.Add_i("wifitrialsmax", _wifitrialsmax);
-            dc.Add_i("waitforMqtt", _waitforMqtt);
-            dc.Add_i("mqttattemps", _EXPmqttattemps);
-            dc.Add_i("wifiwait", _EXPwifiwait);
+            dc->Add_i("G", _G_seconds);
+            dc->Add_i("P", _Pfactor);
+            dc->Add_i("freeram", (int)heap_caps_get_free_size(MALLOC_CAP_8BIT));
+            dc->Add_i("Gcylcle", _GcycleIx);
+            dc->Add_b("cpumhz", _cpuFreq);
+            dc->Add_b("Serial", _serial);
+            dc->Add_i("wifitrialsmax", _wifitrialsmax);
+            dc->Add_i("waitforMqtt", _waitforMqtt);
+            dc->Add_i("mqttattemps", _EXPmqttattemps);
+            dc->Add_i("wifiwait", _EXPwifiwait);
         }
         return true;
     }
@@ -510,16 +518,20 @@ private:
 
     static bool buildInfos()
     {
+#ifdef SANSENSNODE_SKETCHVERSION
+        IoHelpers::IOdisplay("sketch V:");
+        IoHelpers::IOdisplayLn(SANSENSNODE_SKETCHVERSION);
+#endif
+        IoHelpers::IOdisplay("SanSensNodeV2 V:");
+        IoHelpers::IOdisplayLn(getVersion());
+        IoHelpers::IOdisplay("consoleMenu V:");
+        IoHelpers::IOdisplayLn(Menubase::getVersion());
         IoHelpers::IOdisplay("__GNUG__:");
         IoHelpers::IOdisplayLn(__GNUG__);
         IoHelpers::IOdisplay("__cplusplus:");
         IoHelpers::IOdisplayLn(__cplusplus);
         IoHelpers::IOdisplay("build time :");
         IoHelpers::IOdisplayLn(__TIMESTAMP__);
-        IoHelpers::IOdisplay("SanSensNodeV2 V:");
-        IoHelpers::IOdisplayLn(getVersion());
-        IoHelpers::IOdisplay("consoleMenu V:");
-        IoHelpers::IOdisplayLn(Menubase::getVersion());
         return false;
     }
 
@@ -529,5 +541,17 @@ private:
         IoHelpers::IOdisplayLn(getCpuFrequencyMhz());
         IoHelpers::IOdisplay("buffer capacity:");
         IoHelpers::IOdisplayLn(_lastbuffercapacity);
+        return false;
+    };
+    static bool SetEnergyMode()
+    {
+        setCpuFrequencyMhz(_cpuFreq);
+        return true;
+    }
+    static bool breakLoop()
+    {
+        _breakCurrentLoop = true;
+        return true;
+    }
 };
 } // namespace SANSENSNODE_NAMESPACE

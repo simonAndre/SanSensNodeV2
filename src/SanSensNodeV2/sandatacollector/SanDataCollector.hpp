@@ -2,7 +2,7 @@
 
 namespace SANSENSNODE_NAMESPACE
 {
-const int capacity = JSON_OBJECT_SIZE(50);
+const int capacity = 500; //JSON_OBJECT_SIZE(50);
 StaticJsonDocument<capacity> _jsondoc;
 
 class SanDataCollector

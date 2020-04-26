@@ -9,39 +9,40 @@
 #define G_DURATION 10
 #define P_FACTOR 1
 #define DHT_WAITTIMEMS 2000
-
+#define SANSENSNODE_SKETCHVERSION 011
 bool collectdatadht(SanDataCollector collector);
 void setupdevice();
 
 DHT dht(DHTPIN, DHTTYPE, 30);
-SanSensNodeV2 _sensorNode("atp1", "serenandre", "moustik77", "192.168.2.151", true, G_DURATION, P_FACTOR);
+SanSensNodeV2 *_sensorNode;
 
 int _dhtWarmupTime = DHT_WAITTIMEMS;
 
 bool dht_setup()
 {
     Serial.println("dht begin");
-    dht.begin(DHTPIN);
+    // delay(1000);
+    dht.begin();
     return true;
 }
 bool led1On()
 {
     digitalWrite(LED1PIN, HIGH);
-    _sensorNode.waitListeningIOevents(250);
+    _sensorNode->waitListeningIOevents(250);
     digitalWrite(LED1PIN, LOW);
     return false;
 }
 bool led2On()
 {
     digitalWrite(LED2PIN, HIGH);
-    _sensorNode.waitListeningIOevents(250);
+    _sensorNode->waitListeningIOevents(250);
     digitalWrite(LED2PIN, LOW);
     return false;
 }
 void setupdevice()
 {
     //hook up additional menu entries
-    MenuitemHierarchy *device_menu = _sensorNode.getDeviceMenu();
+    SubMenu *device_menu = _sensorNode->getDeviceMenu();
     device_menu->addMenuitemUpdater("DHT warmup time (ms)", &_dhtWarmupTime);
     device_menu->addMenuitemCallback("DHT reset", dht_setup);
     device_menu->addMenuitemCallback("tilt led 1", led1On);
@@ -52,20 +53,23 @@ void setupdevice()
 
 void setup()
 {
+    pinMode(LED1PIN, OUTPUT); // Initialize the LED2PIN pin as an output
     pinMode(LED2PIN, OUTPUT); // Initialize the LED2PIN pin as an output
-    _sensorNode.SetSetupDeviceCallback(setupdevice);
-    _sensorNode.SetCollectDataCallback(collectdatadht);
+
+    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151", false, G_DURATION, P_FACTOR);
+    _sensorNode->SetSetupDeviceCallback(setupdevice);
+    _sensorNode->SetCollectDataCallback(collectdatadht);
     SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
-    _sensorNode.Setup();
+    _sensorNode->Setup();
 }
 void loop()
 {
-    _sensorNode.Loop();
+    _sensorNode->Loop();
 }
 
-bool collectdatadht(SanDataCollector collector)
+bool collectdatadht(SanDataCollector *collector)
 {
-    _sensorNode.waitListeningIOevents(_dhtWarmupTime);
+    _sensorNode->waitListeningIOevents(_dhtWarmupTime);
     //read humidity
     float h = dht.readHumidity();
     // Read temperature as Celsius
@@ -78,15 +82,17 @@ bool collectdatadht(SanDataCollector collector)
         return false;
     }
 
-    collector.Add_i("test_int", 999);
-    collector.Add_f("temp", t);
-    collector.Add_f("humi", h);
-
     Serial.print("DHT data t=");
     Serial.print(t);
     Serial.print("°c ,H=");
     Serial.print(h);
     Serial.println("%");
+    if (collector)
+    {
+        collector->Add_i("test_int", 999);
+        collector->Add_f("temp", t);
+        collector->Add_f("humi", h);
+    }
     return true;
 }
 
@@ -100,7 +106,7 @@ bool InputMessageAction(SanCodedStrings data)
         if (ledon)
         {
             digitalWrite(LED2PIN, HIGH);
-            _sensorNode.waitListeningIOevents(500);
+            _sensorNode->waitListeningIOevents(500);
             digitalWrite(LED2PIN, LOW);
         }
         else
