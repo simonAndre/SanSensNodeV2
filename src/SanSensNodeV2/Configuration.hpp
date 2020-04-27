@@ -1,5 +1,8 @@
 #pragma once
 
+#define LOG_EN_DEFAULT true // set false to disable all log and lower the program size from the logging library.
+#define LOG_LEVEL LOG_LEVEL_DEBUG //5
+
 #define SANSENSNODE_MAX_MEASURES_ATTEMPTS 7
 #define SANSENSNODE_WIFITRIALSINIT 10
 #define SANSENSNODE_WIFIWAITTIMEMS 1000
