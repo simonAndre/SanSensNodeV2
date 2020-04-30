@@ -4,9 +4,10 @@
 #define DHTPIN 4
 #define LED1PIN 16
 #define LED2PIN 17
-#define G_DURATION 10
+#define SANSENSNODE_TOUCHPADGPIO 13 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
+#define G_DURATION 60
 #define P_FACTOR 1
-#define DHT_WAITTIMEMS 2000
+#define DHT_WAITTIMEMS 0
 #define SANSENSNODE_SKETCHVERSION 020
 bool collectdatadht(SanDataCollector collector);
 void setupdevice();
@@ -18,7 +19,7 @@ int _dhtWarmupTime = DHT_WAITTIMEMS;
 
 bool dht_setup()
 {
-    logdebugLn("dht begin");
+    logdebug("dht begin\n");
     dht.setup(DHTPIN, DHTesp::DHT_MODEL_t::DHT22);
     // delay(1000);
     return true;
@@ -47,7 +48,7 @@ void setupdevice()
     device_menu->addMenuitemCallback("tilt led 2", led2On);
 
     dht_setup();
-    logdebugLn("setupdevice done");
+    logdebug("setupdevice done\n");
 }
 
 void setup()
@@ -55,12 +56,12 @@ void setup()
     pinMode(LED1PIN, OUTPUT); // Initialize the LED2PIN pin as an output
     pinMode(LED2PIN, OUTPUT); // Initialize the LED2PIN pin as an output
 
-    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151", false, G_DURATION, P_FACTOR);
+    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151",  G_DURATION, P_FACTOR);
     _sensorNode->SetSetupDeviceCallback(setupdevice);
     _sensorNode->SetCollectDataCallback(collectdatadht);
     SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
     _sensorNode->Setup();
-    logdebugLn("sketch setup done");
+    logdebug("sketch setup done\n");
 }
 void loop()
 {
@@ -79,11 +80,11 @@ bool collectdatadht(SanDataCollector *collector)
         return false;
     }
 
-    loginfoLn("DHT data t=%f°c ,H=%f%", th.temperature, th.humidity);
+    loginfo("DHT data t=%f°c ,H=%f\n", th.temperature, th.humidity);
     if (collector)
     {
-         collector->Add_f("temp", th.temperature);
-        collector->Add_f("humi", th.humidity);
+         collector->Add("temp", th.temperature);
+        collector->Add("humi", th.humidity);
     }
     return true;
 }
@@ -93,7 +94,7 @@ bool InputMessageAction(SanCodedStrings data)
     bool ledon;
     if (data.TryParseValue_b("led", &ledon))
     {
-        logdebugLn("led:%i", ledon);
+        logdebug("led:%i\n", ledon);
         if (ledon)
         {
             digitalWrite(LED2PIN, HIGH);

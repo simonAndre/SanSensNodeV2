@@ -102,6 +102,10 @@ public:
     {
         TryParseValue_i(key, (int *)&outvalue);
     }
+    bool TryParseValue_i(const char *key, uint16_t *outvalue)
+    {
+        TryParseValue_i(key, (int *)&outvalue);
+    }
 
     bool TryParseValue_i(const char *key, uint8_t *outvalue)
     {

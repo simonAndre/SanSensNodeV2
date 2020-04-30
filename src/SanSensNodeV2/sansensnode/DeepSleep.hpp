@@ -63,7 +63,7 @@ public:
     /*
 Method to print the reason by which ESP32 has been awaken from sleep
 */
-    void print_wakeup_reason()
+    uint8_t getWakeup_reason()
     {
         esp_sleep_wakeup_cause_t wakeup_reason;
 
@@ -72,22 +72,22 @@ Method to print the reason by which ESP32 has been awaken from sleep
         switch (wakeup_reason)
         {
         case ESP_SLEEP_WAKEUP_EXT0:
-            logdebugLn("Wakeup caused by external signal using RTC_IO");
+            logdebug("Wakeup caused by external signal using RTC_IO\n");
             break;
         case ESP_SLEEP_WAKEUP_EXT1:
-            logdebugLn("Wakeup caused by external signal using RTC_CNTL");
+            logdebug("Wakeup caused by external signal using RTC_CNTL\n");
             break;
         case ESP_SLEEP_WAKEUP_TIMER:
-            logdebugLn("Wakeup caused by timer");
+            logdebug("Wakeup caused by timer\n");
             break;
         case ESP_SLEEP_WAKEUP_TOUCHPAD:
-            logdebugLn("Wakeup caused by touchpad");
+            logdebug("Wakeup caused by touchpad\n");
             break;
         case ESP_SLEEP_WAKEUP_ULP:
-            logdebugLn("Wakeup caused by ULP program");
+            logdebug("Wakeup caused by ULP program\n");
             break;
         default:
-            logdebugLn("Wakeup was not caused by deep sleep: %i", (uint16_t)wakeup_reason);
+            logdebug("Wakeup was not caused by deep sleep: %i\n", (uint8_t)wakeup_reason);
             break;
         }
 
@@ -95,6 +95,7 @@ Method to print the reason by which ESP32 has been awaken from sleep
         //     print_wakeup_touchpad();
 
         logflush();
+        return (uint8_t)wakeup_reason;
     }
 
 private:
@@ -112,17 +113,17 @@ private:
             touchAttachInterrupt(_touchPadGPIO, _wakupcallback, _touchepadThreshold);
             //Configure Touchpad as wakeup source
             esp_sleep_enable_touchpad_wakeup();
-            logdebugLn("wakeup on touchepad configured");
+            logdebug("wakeup on touchepad configured\n");
         }
         if (_extPinsBitmask > 0)
         {
             esp_sleep_enable_ext1_wakeup(_extPinsBitmask, ESP_EXT1_WAKEUP_ANY_HIGH);
-            logdebugLn("wakeup on ext1 configured");
+            logdebug("wakeup on ext1 configured\n");
         }
     }
     static void wakeupCallback()
     {
-        logdebugLn("no wakeupCallback configured");
+        logdebug("no wakeupCallback configured\n");
     }
 
     //     /*
@@ -136,37 +137,37 @@ private:
     //         switch (touchPin)
     //         {
     //         case 0:
-    //             logdebugLn("Touch detected on GPIO 4");
+    //             logdebug("Touch detected on GPIO 4");
     //             break;
     //         case 1:
-    //             logdebugLn("Touch detected on GPIO 0");
+    //             logdebug("Touch detected on GPIO 0");
     //             break;
     //         case 2:
-    //             logdebugLn("Touch detected on GPIO 2");
+    //             logdebug("Touch detected on GPIO 2");
     //             break;
     //         case 3:
-    //             logdebugLn("Touch detected on GPIO 15");
+    //             logdebug("Touch detected on GPIO 15");
     //             break;
     //         case 4:
-    //             logdebugLn("Touch detected on GPIO 13");
+    //             logdebug("Touch detected on GPIO 13");
     //             break;
     //         case 5:
-    //             logdebugLn("Touch detected on GPIO 12");
+    //             logdebug("Touch detected on GPIO 12");
     //             break;
     //         case 6:
-    //             logdebugLn("Touch detected on GPIO 14");
+    //             logdebug("Touch detected on GPIO 14");
     //             break;
     //         case 7:
-    //             logdebugLn("Touch detected on GPIO 27");
+    //             logdebug("Touch detected on GPIO 27");
     //             break;
     //         case 8:
-    //             logdebugLn("Touch detected on GPIO 33");
+    //             logdebug("Touch detected on GPIO 33");
     //             break;
     //         case 9:
-    //             logdebugLn("Touch detected on GPIO 32");
+    //             logdebug("Touch detected on GPIO 32");
     //             break;
     //         default:
-    //             logdebugLn("Wakeup not by touchpad");
+    //             logdebug("Wakeup not by touchpad");
     //             break;
     //         }
     //     }
