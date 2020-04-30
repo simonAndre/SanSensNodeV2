@@ -17,7 +17,7 @@ using PlatformLogger = PlatformLogger_t<CircularLogBufferLogger<1024>>;
 #if LOG_LEVEL >= LOG_LEVEL_DEBUG
 #ifndef logdebugLn
 #define logdebugLn(...)                \
-    PlatformLogger::info(__VA_ARGS__); \
+    PlatformLogger::debug(__VA_ARGS__); \
     PlatformLogger::print("\n");
 #endif
 #else

@@ -1,28 +1,26 @@
 #include <SanSensNodeV2.h>
 // #include <Arduino.h>
-#include <DHT.h>
-
+#include <DHTesp.h>
 #define DHTPIN 4
-#define DHTTYPE DHT22 // DHT 22  (AM2302)
 #define LED1PIN 16
 #define LED2PIN 17
 #define G_DURATION 10
 #define P_FACTOR 1
 #define DHT_WAITTIMEMS 2000
-#define SANSENSNODE_SKETCHVERSION 011
+#define SANSENSNODE_SKETCHVERSION 020
 bool collectdatadht(SanDataCollector collector);
 void setupdevice();
 
-DHT dht(DHTPIN, DHTTYPE, 30);
+DHTesp dht;
 SanSensNodeV2 *_sensorNode;
 
 int _dhtWarmupTime = DHT_WAITTIMEMS;
 
 bool dht_setup()
 {
-    Serial.println("dht begin");
+    logdebugLn("dht begin");
+    dht.setup(DHTPIN, DHTesp::DHT_MODEL_t::DHT22);
     // delay(1000);
-    dht.begin();
     return true;
 }
 bool led1On()
@@ -49,6 +47,7 @@ void setupdevice()
     device_menu->addMenuitemCallback("tilt led 2", led2On);
 
     dht_setup();
+    logdebugLn("setupdevice done");
 }
 
 void setup()
@@ -61,6 +60,7 @@ void setup()
     _sensorNode->SetCollectDataCallback(collectdatadht);
     SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
     _sensorNode->Setup();
+    logdebugLn("sketch setup done");
 }
 void loop()
 {
@@ -70,28 +70,20 @@ void loop()
 bool collectdatadht(SanDataCollector *collector)
 {
     _sensorNode->waitListeningIOevents(_dhtWarmupTime);
-    //read humidity
-    float h = dht.readHumidity();
-    // Read temperature as Celsius
-    float t = dht.readTemperature();
+    TempAndHumidity th = dht.getTempAndHumidity();
 
     // Check if any reads failed and exit early (to try again).
-    if (isnan(h) || isnan(t))
+    if (isnan(th.temperature) || isnan(th.humidity))
     {
-        Serial.println("Failed to read from DHT sensor!");
+        logerror("Failed to read from DHT sensor!\n");
         return false;
     }
 
-    Serial.print("DHT data t=");
-    Serial.print(t);
-    Serial.print("°c ,H=");
-    Serial.print(h);
-    Serial.println("%");
+    loginfoLn("DHT data t=%f°c ,H=%f%", th.temperature, th.humidity);
     if (collector)
     {
-        collector->Add_i("test_int", 999);
-        collector->Add_f("temp", t);
-        collector->Add_f("humi", h);
+         collector->Add_f("temp", th.temperature);
+        collector->Add_f("humi", th.humidity);
     }
     return true;
 }
@@ -101,8 +93,7 @@ bool InputMessageAction(SanCodedStrings data)
     bool ledon;
     if (data.TryParseValue_b("led", &ledon))
     {
-        Serial.print("led:");
-        Serial.println(ledon);
+        logdebugLn("led:%i", ledon);
         if (ledon)
         {
             digitalWrite(LED2PIN, HIGH);

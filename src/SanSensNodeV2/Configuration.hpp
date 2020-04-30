@@ -1,7 +1,7 @@
 #pragma once
 
 #define LOG_EN_DEFAULT true // set false to disable all log and lower the program size from the logging library.
-#define LOG_LEVEL LOG_LEVEL_DEBUG //5
+#define LOG_LEVEL LOG_LEVEL_DEBUG 
 
 #define SANSENSNODE_MAX_MEASURES_ATTEMPTS 7
 #define SANSENSNODE_WIFITRIALSINIT 10
@@ -10,7 +10,7 @@
 #define SANSENSNODE_MQTTPORT 1883
 #define SANSENSNODE_LOWENERGYFACTOR 3
 #define SANSENSNODE_MQTTATTEMPTSNB 3
-#define SANSENSNODE_STARTINGCPUFREQ 160
+#define SANSENSNODE_STARTINGCPUFREQ 80
 #define SANSENSNODE_STRING_BUFFER_SIZE 32
 #define SANSENSNODE_STARTSAWAKEN 1      // 1=start in awake mode for the first boot
 #define SANSENSNODE_WAITLOOPDELAYMS 100 // define the atomic wait time in ms between 2 serial checks, see sanSensNet::waitWithSerialCheck method
