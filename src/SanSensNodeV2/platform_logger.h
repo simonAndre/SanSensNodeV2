@@ -1,7 +1,8 @@
 #pragma once
 #include "Configuration.hpp"
 #if LOG_EN_DEFAULT == true
-#include <SanBufferLogger.h>
+#include "../SanArduinoLogger/SanArduinoLogger.h"			// pour arduino : link to the Serial putchar
+#include "../SanArduinoLogger/SanBufferLogger.h"
 using PlatformLogger = PlatformLogger_t<SanBufferLogger<1024>>;
 
 

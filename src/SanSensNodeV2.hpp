@@ -22,7 +22,7 @@
 #include "driver/adc.h"
 #include <esp_wifi.h>
 #include <esp_bt.h>
-#include <consoleMenu.h>
+#include "consoleMenu/consoleMenu.h"
 #include <ArduinoJson.h>
 
 #include "SanSensNodeV2/Namespace.hpp"

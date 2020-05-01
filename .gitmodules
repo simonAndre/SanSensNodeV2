@@ -1,0 +1,6 @@
+[submodule "src/consoleMenu"]
+	path = src/consoleMenu
+	url = git@github.com:simonAndre/consoleMenu.git
+[submodule "src/SanArduinoLogger"]
+	path = src/SanArduinoLogger
+	url = git@github.com:simonAndre/SanArduinoLogger.git
