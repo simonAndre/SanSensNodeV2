@@ -4,7 +4,6 @@ implementation specific to ESP32
 */
 
 #pragma once
-#include "../platform_logger.h"
 namespace SANSENSNODE_NAMESPACE
 {
 

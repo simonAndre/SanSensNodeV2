@@ -22,13 +22,12 @@
 #include "driver/adc.h"
 #include <esp_wifi.h>
 #include <esp_bt.h>
-#include "consoleMenu/consoleMenu.h"
-#include <ArduinoJson.h>
-
+#include "external/consoleMenu/consoleMenu.h"
+#include "external/ArduinoJson/ArduinoJson.h"
+#include "SanSensNodeV2/platform_logger.h"
 #include "SanSensNodeV2/Namespace.hpp"
 #include "SanSensNodeV2/sandatacollector/SanDataCollector.hpp"
 #include "SanSensNodeV2/sancodedstrings/SanCodedStrings.hpp"
-// #include "SanSensNodeV2/sansensnode/DeepSleep.hpp"
 #include "SanSensNodeV2/sansensnode/SanSensNodeV2.hpp"
 
 #if SANSENSNODE_EMBEDDED_MODE
