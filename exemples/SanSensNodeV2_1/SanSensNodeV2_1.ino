@@ -1,9 +1,8 @@
 
 // #define ARDUINO 150 //test sAN doit être setté par l'IDE
-
+#include <DHTesp.h> //use https://github.com/beegee-tokyo/DHTesp
 #include <SanSensNodeV2.h>
 // #include <Arduino.h>
-#include "DHTesp.h"
 #define DHTPIN 4
 #define LED1PIN 16
 #define LED2PIN 17

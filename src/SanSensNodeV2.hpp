@@ -17,12 +17,12 @@
 #include <map>
 #include <WiFiClient.h>
 #include <WiFi.h>
-#include "external/pubsubclient/src/PubSubClient.h"
+#include <PubSubClient.h>
 #include <EEPROM.h>
 #include "driver/adc.h"
 #include <esp_wifi.h>
 #include <esp_bt.h>
-#include "external/consoleMenu/consoleMenu.h"
+#include <consoleMenu.h>
 #include <ArduinoJson.h>
 #include "SanSensNodeV2/platform_logger.h"
 #include "SanSensNodeV2/Namespace.hpp"

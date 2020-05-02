@@ -1,9 +1,0 @@
-[submodule "src/external/pubsubclient"]
-	path = src/external/pubsubclient
-	url = https://github.com/knolleary/pubsubclient.git
-[submodule "src/external/consoleMenu"]
-	path = src/external/consoleMenu
-	url = git@github.com:simonAndre/consoleMenu.git
-[submodule "src/external/SanArduinoLogger"]
-	path = src/external/SanArduinoLogger
-	url = git@github.com:simonAndre/SanArduinoLogger.git

@@ -3,7 +3,12 @@
         {
             "name": "Win32",
             "includePath": [
-                "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\SanSensNodeV2\\src\\external\\ArduinoJson",
+                "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\DHT_sensor_library_for_ESPx",
+                "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\consoleMenu\\src",
+                "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\LibPrintf\\src",
+                "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\arduino-logger\\src",
+                "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\ArduinoJson\\src",
+                "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\pubsubclient\\src",
                 "C:\\Users\\simonandre\\Documents\\Arduino\\libraries\\SanSensNodeV2\\src",
                 "C:\\Users\\simonandre\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\**",
                 "C:\\Users\\simonandre\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\1.0.4\\**"

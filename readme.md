@@ -2,11 +2,32 @@
 
 This library provides all the plumbing to manage and exchange sensor data between light arduino clients and server over MQTT 
 
-
 based on : 
+
 + [pubsubclient](https://github.com/knolleary/pubsubclient.git)
 + [ArduinoJson](https://github.com/bblanchon/ArduinoJson.git)
-+ [consoleMenu](git@github.com:simonAndre/consoleMenu.git)
++ [mpaland/printf](https://github.com/mpaland/printf)
++ [arduino-logger](https://github.com/embeddedartistry/arduino-logger.git)
++ [simonAndre/consoleMenu](git@github.com:simonAndre/consoleMenu.git)
+
+## installation
+
+To clone this project, use the `--recurse-submodules` option to get all the dependant libraries :  
+```git
+git clone --recurse-submodules git@github.com:simonAndre/SanSensNodeV2.git
+```
+
+
+### Prerequisite
+
+you need to install the following libraries (from Arduino libraries menu) :
++ [simonAndre/consoleMenu](git@github.com:simonAndre/consoleMenu.git)
++ [PubSubClient](https://github.com/knolleary/pubsubclient.git) 
++ [ArduinoJson](https://github.com/bblanchon/ArduinoJson.git)
++ [LibPrintf](https://github.com/embeddedartistry/arduino-printf)
++ [FlexLogger](https://github.com/embeddedartistry/arduino-logger.git)
+
+all the other dependant libraries are included in submodules
 
 
 WORK IN PROGRESS

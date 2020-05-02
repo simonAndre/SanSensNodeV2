@@ -1,10 +1,15 @@
 #pragma once
 #include "Configuration.hpp"
 #if LOG_EN_DEFAULT == true
-#include "../external/SanArduinoLogger/SanArduinoLogger.h"			// pour arduino : link to the Serial putchar
-#include "../external/SanArduinoLogger/src/SanBufferLogger.h"
-using PlatformLogger = PlatformLogger_t<SanBufferLogger<1024>>;
+#include <LibPrintf.h>
+#include "logger/SanBufferLogger.h"
 
+using PlatformLogger = PlatformLogger_t<SanBufferLogger<1024>>;
+inline static void ___setLogTimeStart()
+{
+    SanBufferLogger<1024>::SetLogTimeStart();
+}
+#define SetLogTimeStart() ___setLogTimeStart();
 
 #else // LOG_EN_DEFAULT
 #define logcritical(...)
@@ -16,12 +21,8 @@ using PlatformLogger = PlatformLogger_t<SanBufferLogger<1024>>;
 #define loglevel(lvl)
 #define logecho(echo)
 #define logclear()
+#define SetLogTimeStart()
 #endif // LOG_EN_DEFAULT
 
-namespace SANSENSNODE_NAMESPACE
-{
-inline static void SetLogTimeStart(){
-    SanBufferLogger<1024>::SetLogTimeStart();
-    // _timeAtLoopStart = millis();
-}
-}
+
+
