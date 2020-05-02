@@ -1,9 +1,6 @@
 [submodule "src/external/pubsubclient"]
 	path = src/external/pubsubclient
 	url = https://github.com/knolleary/pubsubclient.git
-[submodule "src/external/ArduinoJson"]
-	path = src/external/ArduinoJson
-	url = https://github.com/bblanchon/ArduinoJson.git
 [submodule "src/external/consoleMenu"]
 	path = src/external/consoleMenu
 	url = git@github.com:simonAndre/consoleMenu.git
