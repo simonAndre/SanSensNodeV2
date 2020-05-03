@@ -16,7 +16,7 @@ static bool _breakCurrentLoop = false;
 
 static WiFiClient __espClient;
 static RTC_DATA_ATTR int _bootCount = 0;                                                // store "boot" (restart after sleep) counting (in the RTC resilient RAM memory)
-static RTC_DATA_ATTR bool _firstinit = false;                                           //
+static RTC_DATA_ATTR bool _firstinit = true;                                           //
 static RTC_DATA_ATTR bool _awakemode;                                                   // while in awake mode => don't go to sleep on each G cycle until a sleep order has been received
 static RTC_DATA_ATTR bool _mqttsubscribe;                                               // if not subscribe : doesn't respond to mqtt event (only send to server)s
 static RTC_DATA_ATTR uint16_t _G_seconds;                                               // measurement cycle time ie: sleep time (in seconds) (in awake mode and sleep mode)
@@ -63,7 +63,7 @@ public:
     SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver, int G, int Pfactor)
     {
 
-        if (!_firstinit) // première initialisation, ensuite on rentre dans ce constructeur à chaque reveil donc on ne doit pas réinitialiser les variables stockées dnas la RAM de la RTC
+        if (_firstinit) // première initialisation, ensuite on rentre dans ce constructeur à chaque reveil donc on ne doit pas réinitialiser les variables stockées dnas la RAM de la RTC
         {
             logdebug("enter SanSensNodeV2 ctor first init\n");
             _awakemode = SANSENSNODE_STARTSAWAKEN;
@@ -82,7 +82,6 @@ public:
             _G_seconds = G;
             _Pfactor = Pfactor;
             _wifitrialsmax = SANSENSNODE_WIFITRIALSINIT;
-            _firstinit = true;
             _mqttsubscribe = SANSENSNODE_MQTTSUBSCRIBEATSTART;
         }
         loglevel((log_level_e)_loglevel);
@@ -121,11 +120,19 @@ public:
             logdebug("no _setupdevicesCallback defined\n");
         logflush();
 
-        if (_deepsleep && (_deepsleep->getWakeup_reason() == ESP_SLEEP_WAKEUP_TOUCHPAD))
+        if (_firstinit || (_deepsleep && (_deepsleep->getWakeup_reason() == ESP_SLEEP_WAKEUP_TOUCHPAD)))
         {
-            logdebug("awake by touchpad => menu\n");
-            _consolemenu->launchMenu();
+            //conditions for prompting menu at start (but with a small timeout to save battery in case of unwanted awake)
+            // auto op=_consolemenu->getOptions();
+            // op.firstExpirationTimeSec = 5;
+            // _consolemenu->setOptions(op);
+            // _consolemenu->launchMenu();
+            printf("input anything to show the menu. Expire in %i seconds", SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU);
+            waitListeningIOevents(SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU * 1000);
         }
+
+        if(_firstinit)
+            _firstinit = false;
     }
 
     /**
@@ -281,6 +288,12 @@ private:
     pf_callback_setupdevices _setupdevicesCallback;
     const char *_mqttTopicBaseName{"/ssnet/"};
     const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
+
+
+
+
+
+
 
     bool mqttConnect()
     {

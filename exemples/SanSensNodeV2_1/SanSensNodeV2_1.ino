@@ -6,11 +6,11 @@
 #define DHTPIN 4
 #define LED1PIN 16
 #define LED2PIN 17
-#define SANSENSNODE_TOUCHPADGPIO 13 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
-#define G_DURATION 60
+#define SANSENSNODE_TOUCHPADGPIO 15 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
+#define G_DURATION 30
 #define P_FACTOR 1
 #define DHT_WAITTIMEMS 0
-#define SANSENSNODE_SKETCHVERSION 020
+#define SANSENSNODE_SKETCHVERSION 022
 bool collectdatadht(SanDataCollector collector);
 void setupdevice();
 

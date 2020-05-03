@@ -3,7 +3,7 @@
 #define LOG_EN_DEFAULT true // set false to disable all log and lower the program size from the logging library.
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-#define SANSENSNODE_TOUCHPADGPIO 13 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
+#define SANSENSNODE_TOUCHPADGPIO 15 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
 
 #define SANSENSNODE_MAX_MEASURES_ATTEMPTS 3
 #define SANSENSNODE_WIFITRIALSINIT 5
@@ -22,7 +22,7 @@
 #define SANSENSNODE_WAITFORSERIALDELAY 400 // on setup : delay to let serial respond
 #define SANSENSNODE_WAITLOOPDELAYMS 100 // define the atomic wait time in ms between 2 serial checks, see sanSensNet::waitWithSerialCheck method
 #define SANSENSNODE_TOUCHPADTHRESHOLD 40 // touchepad wakup sensibility (greater is more sensitive)
-
+#define SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU 5       // in seconds, delay to wait for a user interraction to display menu after the firt boot or an awake by the touchpad
 // computer or embedded?
 #ifndef SANSENSNODE_EMBEDDED_MODE
 #if defined(ARDUINO)                /* Arduino*/                 \
