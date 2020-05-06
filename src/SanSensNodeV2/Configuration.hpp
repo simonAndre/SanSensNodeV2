@@ -1,7 +1,7 @@
 #pragma once
 
 #define LOG_EN_DEFAULT true // set false to disable all log and lower the program size from the logging library.
-#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL LOG_LEVEL_DEBUG
 
 #define SANSENSNODE_TOUCHPADGPIO 15 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
 

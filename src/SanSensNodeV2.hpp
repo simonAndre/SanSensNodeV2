@@ -24,10 +24,11 @@
 #include <esp_bt.h>
 #include <consoleMenu.h>
 #include <ArduinoJson.h>
+
 #include "SanSensNodeV2/platform_logger.h"
 #include "SanSensNodeV2/Namespace.hpp"
 #include "SanSensNodeV2/sandatacollector/SanDataCollector.hpp"
-#include "SanSensNodeV2/sancodedstrings/SanCodedStrings.hpp"
+#include "SanSensNodeV2/sansensnode/SanCodedStr.hpp"
 #include "SanSensNodeV2/sansensnode/SanSensNodeV2.hpp"
 
 #if SANSENSNODE_EMBEDDED_MODE
@@ -36,8 +37,8 @@
 
 namespace sanSensNode
 {
-// using SANSENSNODE_NAMESPACE::DeepSleep;
-using SANSENSNODE_NAMESPACE::SanCodedStrings;
-using SANSENSNODE_NAMESPACE::SanDataCollector;
-using SANSENSNODE_NAMESPACE::SanSensNodeV2;
+    // using SANSENSNODE_NAMESPACE::DeepSleep;
+    using SANSENSNODE_NAMESPACE::SanCodedStr;
+    using SANSENSNODE_NAMESPACE::SanDataCollector;
+    using SANSENSNODE_NAMESPACE::SanSensNodeV2;
 } // namespace sanSensNode
