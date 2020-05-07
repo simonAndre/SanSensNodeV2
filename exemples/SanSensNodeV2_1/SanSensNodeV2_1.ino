@@ -1,9 +1,14 @@
+#include <DallasTemperature.h>
+
+#include <OneWire.h>
+
 
 // #define ARDUINO 150 //test sAN doit être setté par l'IDE
 #include <DHTesp.h> //use https://github.com/beegee-tokyo/DHTesp
 #include <SanSensNodeV2.h>
 // #include <Arduino.h>
 #define DHTPIN 4
+#define ONEWIREPIN 5
 #define LED1PIN 16
 #define LED2PIN 17
 #define SANSENSNODE_TOUCHPADGPIO 15 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
@@ -13,20 +18,24 @@
 #define G_DURATION 10
 #define P_FACTOR 1
 #define DHT_WAITTIMEMS 0
-#define SANSENSNODE_SKETCHVERSION 022
-bool collectdatadht(SanDataCollector collector);
+#define SANSENSNODE_SKETCHVERSION 0341
+
+#undef MQTT_MAX_PACKET_SIZE      // un-define max packet size
+#define MQTT_MAX_PACKET_SIZE 250 // fix for MQTT client dropping messages over 128B
+
+bool collectdatadht(JsonColl *collector);
 void setupdevice();
 
 DHTesp dht;
 SanSensNodeV2 *_sensorNode;
-
+OneWire oneWire(ONEWIREPIN);
+DallasTemperature sensors(&oneWire);
 int _dhtWarmupTime = DHT_WAITTIMEMS;
 
 bool dht_setup()
 {
     logdebug("dht begin\n");
     dht.setup(DHTPIN, DHTesp::DHT_MODEL_t::DHT22);
-    // delay(1000);
     return true;
 }
 bool led1On()
@@ -53,6 +62,8 @@ void setupdevice()
     device_menu->addMenuitemCallback("tilt led 2", led2On);
 
     dht_setup();
+
+    sensors.begin();    //onewire
     logdebug("setupdevice done\n");
 }
 
@@ -64,8 +75,7 @@ void setup()
     _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151", G_DURATION, P_FACTOR);
     _sensorNode->SetSetupDeviceCallback(setupdevice);
     _sensorNode->SetCollectDataCallback(collectdatadht);
-    SanSensNodeV2::SetInputMessageCallback([](){
-        InputMessageAction();});
+    SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
     _sensorNode->Setup();
     logdebug("sketch setup done\n");
 }
@@ -74,7 +84,7 @@ void loop()
     _sensorNode->Loop();
 }
 
-bool collectdatadht(SanDataCollector *collector)
+bool collectdatadht(JsonColl *collector)
 {
     _sensorNode->waitListeningIOevents(_dhtWarmupTime);
     TempAndHumidity th = dht.getTempAndHumidity();
@@ -87,13 +97,21 @@ bool collectdatadht(SanDataCollector *collector)
     }
     double voltage = ReadVoltage();
     loginfo("DHT data t=%f°c ,H=%f, Vpower=%f\n", th.temperature, th.humidity, voltage);
+
+    sensors.requestTemperatures();
+    float T2 = sensors.getTempCByIndex(0);
+    float T3 = sensors.getTempCByIndex(1);
+    loginfo("one wire temp1=%f°c, temp2=%f°c\n", T2, T3);
+
     if (collector)
     {
-        collector->Add("temp", th.temperature);
-        collector->Add("humi", th.humidity);
-        collector->Add("V", voltage);
-        collector->Add("V33", ReadVoltageOn3_3());
-        }
+        collector->add("temp", th.temperature);
+        collector->add("humi", th.humidity);
+        collector->add("V", voltage);
+        // collector->add("V33", ReadVoltageOn3_3());
+        collector->add("T2", T2);
+        collector->add("T3", T3);
+    }
     return true;
 }
 

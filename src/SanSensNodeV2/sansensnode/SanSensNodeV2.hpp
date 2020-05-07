@@ -3,10 +3,8 @@
 
 namespace SANSENSNODE_NAMESPACE
 {
+    typedef JsonStream<106> JsonColl;
 
-    typedef bool (*pf_callback_collectdata)(SanDataCollector *);
-    typedef void (*pf_callback_setupdevices)(void);
-   
     static char _menuswitch_buff[SANSENSNODE_STRING_BUFFER_SIZE];
     static char _sansensnodeversion[10];
     static char _mqttpayload[SANSENSNODE_MQTTRECEIVEMESSAGE_SIZE];
@@ -36,12 +34,15 @@ namespace SANSENSNODE_NAMESPACE
     static RTC_DATA_ATTR const char *_ssid{nullptr};
     static RTC_DATA_ATTR const char *_password{nullptr};
     static RTC_DATA_ATTR const char *_mqtt_server{nullptr};
-    static RTC_DATA_ATTR uint8_t _EXPtestduplicatepublish = 1; // EXPERIMENTAL :
 
     static RTC_DATA_ATTR bool _verboseMode;
+    static RTC_DATA_ATTR uint16_t _EXPmodetestmqttmessagestart = 100;
+
     static RTC_DATA_ATTR uint8_t _maxMeasurementAttenmpts;
 
     static std::function<void(SanCodedStr)> _inputmessageCallback;
+    static std::function<bool(JsonColl *)> _collectdataCallback;
+    static std::function<void()> _setupdevicesCallback;
 
     const uint16_t _jsonoutbuffersize = 150;
 
@@ -85,7 +86,7 @@ namespace SANSENSNODE_NAMESPACE
                 _mqttsubscribe = SANSENSNODE_MQTTSUBSCRIBEATSTART;
             }
             loglevel((log_level_e)_loglevel);
-            this->client.setClient(__espClient);
+            this->mqttClient.setClient(__espClient);
             setupSerialMenu();
             ++_bootCount;
             logdebug("end SanSensNodeV2 ctor\n");
@@ -151,19 +152,18 @@ namespace SANSENSNODE_NAMESPACE
 
             _measurementAttenmpts = 1;
 
-            SanDataCollector *datacollector{nullptr};
-            datacollector = new SanDataCollector();
+            datacoll = new JsonColl();
 
             logdebug("measure start\n");
-            while (!SanSensNodeV2::collectMeasurement(datacollector) && _measurementAttenmpts <= _maxMeasurementAttenmpts)
+            while (!SanSensNodeV2::collectMeasurement(datacoll) && _measurementAttenmpts <= _maxMeasurementAttenmpts)
             {
                 _measurementAttenmpts++;
             }
             logdebug("measure end\n");
             logflush();
 
-            if (_wifiMode > 0 && datacollector && _Gi % _Pfactor == 0)
-                SanSensNodeV2::mqttpubsub(datacollector);
+            if (_wifiMode > 0 && datacoll && _Gi % _Pfactor == 0)
+                SanSensNodeV2::mqttpubsub(datacoll);
             if (!_breakCurrentLoop)
                 waitNextG();
         }
@@ -227,13 +227,13 @@ namespace SANSENSNODE_NAMESPACE
         }
 
         // called to collect sensors data to be sent via mqtt
-        void SetCollectDataCallback(pf_callback_collectdata collectdatafunction)
+        void SetCollectDataCallback(std::function<bool(JsonColl*)> collectdatafunction)
         {
             _collectdataCallback = collectdatafunction;
         }
 
         //setup the callback called to setup the sensors
-        void SetSetupDeviceCallback(pf_callback_setupdevices setupdevicesfunction)
+        void SetSetupDeviceCallback(std::function<void()> setupdevicesfunction)
         {
             _setupdevicesCallback = setupdevicesfunction;
         }
@@ -277,29 +277,30 @@ namespace SANSENSNODE_NAMESPACE
         }
 
     private:
-        PubSubClient client;
+        PubSubClient mqttClient;
+        JsonColl *datacoll;
         bool initStringValue(const char *menuname);
         bool DisplayStringValue(const char *menuname);
         Menubase *_consolemenu;
         SubMenu *_device_menu;
         SANSENSNODE_NAMESPACE::DeepSleep *_deepsleep;
         uint8_t _measurementAttenmpts;
-        pf_callback_collectdata _collectdataCallback;
-        pf_callback_setupdevices _setupdevicesCallback;
-        const char *_mqttTopicBaseName{"/ssnet/"};
+         const char *_mqttTopicBaseName{"/ssnet/"};
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
+
+
 
         bool mqttConnect()
         {
             uint8_t i = 0;
             // Loop until we're reconnected
-            while (!client.connected())
+            while (!mqttClient.connected())
             {
                 loginfo("MQTT connection: ");
                 // Attempt to connect
-                if (!client.connect(_nodename))
+                if (!mqttClient.connect(_nodename))
                 {
-                    logwarning("failed, rc=%i\n", client.state());
+                    logwarning("failed, rc=%i\n", mqttClient.state());
                     if (++i >= _EXPmqttattemps)
                     {
                         logflush();
@@ -318,7 +319,7 @@ namespace SANSENSNODE_NAMESPACE
             int l;
             for (int l = 0; l <= nb; l++)
             {
-                if (!client.loop())
+                if (!mqttClient.loop())
                 { //This should be called regularly to allow the client to process incoming messages and maintain its connection to the server.
                     logdebug("WaitforMqtt : mqtt client disconnected\n");
                     return true; // the client is no longer connected
@@ -332,7 +333,7 @@ namespace SANSENSNODE_NAMESPACE
 
         bool mqttSubscribe()
         {
-            if (!client.connected())
+            if (!mqttClient.connected())
             {
                 logwarning("can't subscribe: no mqtt connection\n");
                 logflush();
@@ -341,7 +342,7 @@ namespace SANSENSNODE_NAMESPACE
             std::string intopic(SanSensNodeV2::_mqttTopicBaseName);
             intopic.append(_nodename);
             intopic.append("/in");
-            if (!client.subscribe(intopic.c_str(), 1))
+            if (!mqttClient.subscribe(intopic.c_str(), 1))
             {
                 logwarning("subscription to topic %s failed!\n", intopic.c_str());
                 logflush();
@@ -352,7 +353,7 @@ namespace SANSENSNODE_NAMESPACE
             return true;
         }
 
-        bool collectMeasurement(SanDataCollector *dc)
+        bool collectMeasurement(JsonColl *dc)
         {
             if (dc && !collectMeasurement_internal(dc))
                 return false;
@@ -368,7 +369,7 @@ namespace SANSENSNODE_NAMESPACE
         }
 
         // publish and subscribe to the respective MQTT chanels (open the connection and close after)
-        bool mqttpubsub(SanDataCollector *dc)
+        bool mqttpubsub(JsonColl *dc)
         {
             logdebug("enter mqttpubsub\n");
 
@@ -376,38 +377,39 @@ namespace SANSENSNODE_NAMESPACE
             uint32_t m0 = millis();
             if (!Setup_wifi())
                 return false;
-            if (!client.connected())
+            if (!mqttClient.connected())
                 if (!mqttConnect())
                     return false;
             if (_mqttsubscribe)
                 mqttSubscribe(); // todo : action en cas de défaut de souscription??
 
             // WaitforMqtt(15); // to wait for incoming messages
+
             if (dc)
             {
                 if (_measurementAttenmpts >= _maxMeasurementAttenmpts)
-                    dc->Add("SensorIssue", true);
-
-                char buffer[_jsonoutbuffersize];
-                size_t size = dc->Serialize(buffer, _jsonoutbuffersize);
+                    dc->add("SensorIssue", true);
 
                 std::string outopic(SanSensNodeV2::_mqttTopicBaseName);
                 outopic.append(_nodename);
                 outopic.append("/out");
-                logdebug("publish on %s, taille message: %i\n", outopic.c_str(), (int)size);
-                for (uint8_t i = 0; i < _EXPtestduplicatepublish; i++)
-                {
-                    if (!client.publish(outopic.c_str(), buffer, true))
+                logdebug("publish on %s\n", outopic.c_str());
+
+                auto vecres = dc->getJsons();
+                logdebug("nb jsons strings to publish: %i\n", vecres.size());
+                int i = 1;
+                for (const std::string &json : vecres){
+                    if (!mqttClient.publish(outopic.c_str(), json.c_str(), true))
                     {
                         logerror("publish failed at %i\n", i);
                         break;
                     }
                     if (!WaitforMqtt(_waitforMqttSend))
                         return false;
-                    logdebug("publish pass %i\n", i);
+                    logdebug("publish pass %i OK : %s\n", i, json.c_str());
                 }
+              
                 _Pi++;
-                loginfo("message: %s, publication mqtt OK\n", (char *)buffer);
                 logflush();
             }
             if (_mqttsubscribe)
@@ -459,8 +461,8 @@ namespace SANSENSNODE_NAMESPACE
             Serial.print(",\n");
             logflush();
 
-            client.setServer(_mqtt_server, SANSENSNODE_MQTTPORT);
-            client.setCallback(mqttCallback);
+            mqttClient.setServer(_mqtt_server, SANSENSNODE_MQTTPORT);
+            mqttClient.setCallback(mqttCallback);
 
             return true;
         }
@@ -473,7 +475,7 @@ namespace SANSENSNODE_NAMESPACE
 
         void setupSerialMenu()
         {
-            _consolemenu = new Menu<27>(); // menu-entries in this class ( 2 more in the sketch) (todo : to template)
+            _consolemenu = new Menu<26>(); // menu-entries in this class ( 2 more in the sketch) (todo : to template)
             //define options
             MenuOptions menuoptions;
             menuoptions.addBack = true;
@@ -502,7 +504,6 @@ namespace SANSENSNODE_NAMESPACE
             publication_menu->addMenuitemUpdater("wifiwait", &_EXPwifiwait);
             publication_menu->addMenuitemUpdater("wifiattemps", &_EXPmqttattemps);
             publication_menu->addMenuitemUpdater("wifi mode (1 to 4)", &_wifiMode);
-            publication_menu->addMenuitemUpdater("duplicate publication", &_EXPtestduplicatepublish);
 
             SubMenu *smfreq = _device_menu->addSubMenu("set CPU freq")->addCallbackToChilds(SetEnergyMode)->addCallbackToChilds(breakLoop);
             smfreq->addMenuitem()->SetLabel("80 Mhz")->addLambda([]() { _cpuFreq = 80; });
@@ -514,28 +515,29 @@ namespace SANSENSNODE_NAMESPACE
             // infos_menu->addMenuitem()->SetLabel("RT infos")->addLambda([_consolemenu]() { rtInfos(_consolemenu); });
             // infos_menu->addMenuitemCallback("RT infos", rtInfos);
             infos_menu->addMenuitemUpdater("Log level (0=off->5=debug)", &_loglevel)->addLambda([]() { loglevel((log_level_e)_loglevel); });
+
         }
 
-        bool collectMeasurement_internal(SanDataCollector *dc)
+        bool collectMeasurement_internal(JsonColl *dc)
         {
             if (!dc)
                 return false;
             //collect data and fill _datacollector with it
-            dc->Add("device", _nodename);
-            dc->Add("Gi", _Gi);
-            dc->Add("Pi", _Pi);
+            dc->add("device", _nodename);
+            dc->add("Gi", _Gi);
+            dc->add("Pi", _Pi);
             double timeSinceStartup = esp_timer_get_time() / 1000000;
-            dc->Add("uptime", timeSinceStartup);
+            dc->add("uptime", timeSinceStartup);
             if (_verboseMode)
             {
-                dc->Add("G_span", _G_seconds);
-                dc->Add("P_nb", _Pfactor);
-                dc->Add("freeram", (int)heap_caps_get_free_size(MALLOC_CAP_8BIT));
-                dc->Add("boot count", _bootCount);
-                // dc->Add("cpumhz", _cpuFreq);
-                // dc->Add("Serial", _serial);
-                // dc->Add("wifitrialsmax", _wifitrialsmax);
-                // dc->Add("mqttattemps", _EXPmqttattemps);
+                dc->add("G_span", _G_seconds);
+                dc->add("P_nb", _Pfactor);
+                dc->add("freeram", (int)heap_caps_get_free_size(MALLOC_CAP_8BIT));
+                dc->add("boot count", _bootCount);
+                // dc->add("cpumhz", _cpuFreq);
+                // dc->add("Serial", _serial);
+                // dc->add("wifitrialsmax", _wifitrialsmax);
+                // dc->add("mqttattemps", _EXPmqttattemps);
             }
             return true;
         }
@@ -574,7 +576,6 @@ namespace SANSENSNODE_NAMESPACE
                 logdebug("sleep:%i\n", _awakemode);
             }
 
-           
             if (pyldic.tryGetValue("serial", _serial))
             {
                 logdebug("serial:%i\n", _serial);

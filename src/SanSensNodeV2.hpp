@@ -23,12 +23,14 @@
 #include <esp_wifi.h>
 #include <esp_bt.h>
 #include <consoleMenu.h>
-#include <ArduinoJson.h>
+#include <flyingCollection.h>
+
+#undef MQTT_MAX_PACKET_SIZE      // un-define max packet size
+#define MQTT_MAX_PACKET_SIZE 250 // fix for MQTT client dropping messages over 128B
+
 
 #include "SanSensNodeV2/platform_logger.h"
 #include "SanSensNodeV2/Namespace.hpp"
-#include "SanSensNodeV2/sandatacollector/SanDataCollector.hpp"
-#include "SanSensNodeV2/sansensnode/SanCodedStr.hpp"
 #include "SanSensNodeV2/sansensnode/SanSensNodeV2.hpp"
 
 #if SANSENSNODE_EMBEDDED_MODE
@@ -37,8 +39,6 @@
 
 namespace sanSensNode
 {
-    // using SANSENSNODE_NAMESPACE::DeepSleep;
-    using SANSENSNODE_NAMESPACE::SanCodedStr;
-    using SANSENSNODE_NAMESPACE::SanDataCollector;
+    using SANSENSNODE_NAMESPACE::JsonColl;
     using SANSENSNODE_NAMESPACE::SanSensNodeV2;
 } // namespace sanSensNode
