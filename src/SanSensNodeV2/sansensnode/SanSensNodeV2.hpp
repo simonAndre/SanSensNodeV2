@@ -1,4 +1,6 @@
 #pragma once
+#include <flyingCollection.h>
+#include "devicePlugin.h"
 #include "DeepSleep.hpp"
 
 namespace SANSENSNODE_NAMESPACE
@@ -90,6 +92,11 @@ namespace SANSENSNODE_NAMESPACE
             setupSerialMenu();
             ++_bootCount;
             logdebug("end SanSensNodeV2 ctor\n");
+        }
+
+        void addDevice(const devicePlugin& device)
+        {
+            _devices.emplace_back(device);
         }
 
         /**
@@ -227,7 +234,7 @@ namespace SANSENSNODE_NAMESPACE
         }
 
         // called to collect sensors data to be sent via mqtt
-        void SetCollectDataCallback(std::function<bool(JsonColl*)> collectdatafunction)
+        void SetCollectDataCallback(std::function<bool(JsonColl *)> collectdatafunction)
         {
             _collectdataCallback = collectdatafunction;
         }
@@ -285,12 +292,12 @@ namespace SANSENSNODE_NAMESPACE
         SubMenu *_device_menu;
         SANSENSNODE_NAMESPACE::DeepSleep *_deepsleep;
         uint8_t _measurementAttenmpts;
-         const char *_mqttTopicBaseName{"/ssnet/"};
+        const char *_mqttTopicBaseName{"/ssnet/"};
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
+        std::vector<devicePlugin> _devices;
 
-
-
-        bool mqttConnect()
+        bool
+        mqttConnect()
         {
             uint8_t i = 0;
             // Loop until we're reconnected
@@ -398,7 +405,8 @@ namespace SANSENSNODE_NAMESPACE
                 auto vecres = dc->getJsons();
                 logdebug("nb jsons strings to publish: %i\n", vecres.size());
                 int i = 1;
-                for (const std::string &json : vecres){
+                for (const std::string &json : vecres)
+                {
                     if (!mqttClient.publish(outopic.c_str(), json.c_str(), true))
                     {
                         logerror("publish failed at %i\n", i);
@@ -408,7 +416,7 @@ namespace SANSENSNODE_NAMESPACE
                         return false;
                     logdebug("publish pass %i OK : %s\n", i, json.c_str());
                 }
-              
+
                 _Pi++;
                 logflush();
             }
@@ -515,7 +523,6 @@ namespace SANSENSNODE_NAMESPACE
             // infos_menu->addMenuitem()->SetLabel("RT infos")->addLambda([_consolemenu]() { rtInfos(_consolemenu); });
             // infos_menu->addMenuitemCallback("RT infos", rtInfos);
             infos_menu->addMenuitemUpdater("Log level (0=off->5=debug)", &_loglevel)->addLambda([]() { loglevel((log_level_e)_loglevel); });
-
         }
 
         bool collectMeasurement_internal(JsonColl *dc)

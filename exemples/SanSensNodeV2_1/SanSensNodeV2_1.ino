@@ -1,14 +1,14 @@
 #include <DallasTemperature.h>
 
-#include <OneWire.h>
 
 
 // #define ARDUINO 150 //test sAN doit être setté par l'IDE
-#include <DHTesp.h> //use https://github.com/beegee-tokyo/DHTesp
 #include <SanSensNodeV2.h>
+#include "pluginOneWire.hpp"
+#include "pluginDHT22.hpp"
 // #include <Arduino.h>
-#define DHTPIN 4
-#define ONEWIREPIN 5
+const uint8_t DHTpin = 4;
+const uint8_t oneWireBus = 5;
 #define LED1PIN 16
 #define LED2PIN 17
 #define SANSENSNODE_TOUCHPADGPIO 15 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
@@ -17,7 +17,6 @@
 #define ADC_b 0.341586840689968
 #define G_DURATION 10
 #define P_FACTOR 1
-#define DHT_WAITTIMEMS 0
 #define SANSENSNODE_SKETCHVERSION 0341
 
 #undef MQTT_MAX_PACKET_SIZE      // un-define max packet size
@@ -26,18 +25,9 @@
 bool collectdatadht(JsonColl *collector);
 void setupdevice();
 
-DHTesp dht;
 SanSensNodeV2 *_sensorNode;
-OneWire oneWire(ONEWIREPIN);
-DallasTemperature sensors(&oneWire);
-int _dhtWarmupTime = DHT_WAITTIMEMS;
 
-bool dht_setup()
-{
-    logdebug("dht begin\n");
-    dht.setup(DHTPIN, DHTesp::DHT_MODEL_t::DHT22);
-    return true;
-}
+
 bool led1On()
 {
     digitalWrite(LED1PIN, HIGH);
@@ -52,18 +42,12 @@ bool led2On()
     digitalWrite(LED2PIN, LOW);
     return false;
 }
-void setupdevice()
+void setupdevice(SubMenu& device_menu)
 {
     //hook up additional menu entries
-    SubMenu *device_menu = _sensorNode->getDeviceMenu();
-    device_menu->addMenuitemUpdater("DHT warmup time (ms)", &_dhtWarmupTime);
-    device_menu->addMenuitemCallback("DHT reset", dht_setup);
+    // SubMenu *device_menu = _sensorNode->getDeviceMenu();
     device_menu->addMenuitemCallback("tilt led 1", led1On);
     device_menu->addMenuitemCallback("tilt led 2", led2On);
-
-    dht_setup();
-
-    sensors.begin();    //onewire
     logdebug("setupdevice done\n");
 }
 
@@ -76,7 +60,13 @@ void setup()
     _sensorNode->SetSetupDeviceCallback(setupdevice);
     _sensorNode->SetCollectDataCallback(collectdatadht);
     SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
+
+    DS18B20 *ds18b20 = new DS18B20(oneWireBus);
+    _sensorNode->addDevice(ds18b20);
+    DHT22 *dht = new DHT22(DHTpin);
+    _sensorNode->addDevice(dht);
     _sensorNode->Setup();
+
     logdebug("sketch setup done\n");
 }
 void loop()
@@ -86,33 +76,7 @@ void loop()
 
 bool collectdatadht(JsonColl *collector)
 {
-    _sensorNode->waitListeningIOevents(_dhtWarmupTime);
-    TempAndHumidity th = dht.getTempAndHumidity();
-
-    // Check if any reads failed and exit early (to try again).
-    if (isnan(th.temperature) || isnan(th.humidity))
-    {
-        logerror("Failed to read from DHT sensor!\n");
-        return false;
-    }
-    double voltage = ReadVoltage();
-    loginfo("DHT data t=%f°c ,H=%f, Vpower=%f\n", th.temperature, th.humidity, voltage);
-
-    sensors.requestTemperatures();
-    float T2 = sensors.getTempCByIndex(0);
-    float T3 = sensors.getTempCByIndex(1);
-    loginfo("one wire temp1=%f°c, temp2=%f°c\n", T2, T3);
-
-    if (collector)
-    {
-        collector->add("temp", th.temperature);
-        collector->add("humi", th.humidity);
-        collector->add("V", voltage);
-        // collector->add("V33", ReadVoltageOn3_3());
-        collector->add("T2", T2);
-        collector->add("T3", T3);
-    }
-    return true;
+ 
 }
 
 void InputMessageAction(SanCodedStr data)
