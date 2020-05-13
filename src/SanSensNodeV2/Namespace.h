@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "version.hpp"
+#include "version.h"
 
 #define SANSENSNODE_DO_CONCAT(A, B) A##B
 #define SANSENSNODE_CONCAT2(A, B) SANSENSNODE_DO_CONCAT(A, B)

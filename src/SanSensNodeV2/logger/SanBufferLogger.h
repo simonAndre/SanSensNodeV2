@@ -33,7 +33,7 @@ class SanBufferLogger final : public LoggerBase
 	}
 
 	/// Default destructor
-	~SanBufferLogger() noexcept = default;
+	~SanBufferLogger() noexcept {}
 
 	size_t size() const noexcept final
 	{

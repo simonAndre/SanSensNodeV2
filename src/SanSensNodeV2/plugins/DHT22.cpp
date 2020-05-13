@@ -2,7 +2,7 @@
 #include <Arduino.h>
 namespace SANSENSNODE_NAMESPACE
 {
-	DHT22::DHT22(uint8_t dhtpin)
+	DHT22::DHT22(uint8_t dhtpin) : DevicePlugin()
 	{
 		this->_dhtpin = dhtpin;
 	}
@@ -45,4 +45,5 @@ namespace SANSENSNODE_NAMESPACE
 	void DHT22::dht_setup()
 	{
 		dht.setup(_dhtpin, DHTesp::DHT_MODEL_t::DHT22);
-	}}
+	}
+} // namespace SANSENSNODE_NAMESPACE

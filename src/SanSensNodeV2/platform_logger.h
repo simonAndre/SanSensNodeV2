@@ -1,5 +1,5 @@
 #pragma once
-#include "Configuration.hpp"
+#include "Configuration.h"
 #if LOG_EN_DEFAULT == true
 #include <LibPrintf.h>
 #include "logger/SanBufferLogger.h"

@@ -2,7 +2,7 @@
 #include <Arduino.h>
 namespace SANSENSNODE_NAMESPACE
 {
-	DS18B20::DS18B20(uint8_t oneWireBus)
+	DS18B20::DS18B20(uint8_t oneWireBus) : DevicePlugin()
 	{
 		this->_oneWireBus = oneWireBus;
 	}
@@ -77,6 +77,10 @@ namespace SANSENSNODE_NAMESPACE
 				collector.add(buf, tempC);
 			}
 		}
+	}
+
+	void DS18B20::onInputMessage(flyingCollection::SanCodedStr &data){
+		
 	}
 
 	// function to print a device address

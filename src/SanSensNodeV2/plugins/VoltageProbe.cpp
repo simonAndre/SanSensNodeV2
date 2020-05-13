@@ -1,6 +1,9 @@
 #include "VoltageProbe.h"
 namespace SANSENSNODE_NAMESPACE
 {
+	VoltageProbe::VoltageProbe() : DevicePlugin() {}
+	VoltageProbe::~VoltageProbe() {}
+
 	double VoltageProbe::ReadVoltage()
 	{
 		//on fait une moyenne des lectures

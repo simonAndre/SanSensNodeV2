@@ -1,0 +1,586 @@
+#include <Arduino.h>
+#include "../Configuration.h"
+#include "../Namespace.h"
+#include "SanSensNodeV2.h"
+#include "specialTypes.h"
+#include <WiFi.h>
+#include "../platform_logger.h"
+
+namespace SANSENSNODE_NAMESPACE
+{
+
+    static char _menuswitch_buff[SANSENSNODE_STRING_BUFFER_SIZE];
+    static char _sansensnodeversion[10];
+    static char _mqttpayload[SANSENSNODE_MQTTRECEIVEMESSAGE_SIZE];
+    static uint16_t _mqttpayloadLength = 0;
+    static bool _breakCurrentLoop = false;
+
+    static WiFiClient __espClient;
+    static RTC_DATA_ATTR int _bootCount = 0;                                                // store "boot" (restart after sleep) counting (in the RTC resilient RAM memory)
+    static RTC_DATA_ATTR bool _firstinit = true;                                            //
+    static RTC_DATA_ATTR bool _awakemode;                                                   // while in awake mode => don't go to sleep on each G cycle until a sleep order has been received
+    static RTC_DATA_ATTR bool _mqttsubscribe;                                               // if not subscribe : doesn't respond to mqtt event (only send to server)s
+    static RTC_DATA_ATTR uint16_t _G_seconds;                                               // measurement cycle time ie: sleep time (in seconds) (in awake mode and sleep mode)
+    static RTC_DATA_ATTR uint16_t _Pfactor;                                                 // publication and mqtt connection frequency (in G multiples)
+    static RTC_DATA_ATTR bool _serial;                                                      // false to disable output serial log
+    static RTC_DATA_ATTR uint8_t _cpuFreq = SANSENSNODE_STARTINGCPUFREQ;                    // CPU operating frequency
+    static RTC_DATA_ATTR uint8_t _wifitrialsmax;                                            // nb max of attemps to check the wifi network for a wakeup cycle
+    static RTC_DATA_ATTR uint32_t _Gi;                                                      // store the current cycle index (G or measurement cycle)
+    static RTC_DATA_ATTR uint32_t _Pi;                                                      // store the current publication index (P)
+    static RTC_DATA_ATTR uint16_t _EXPwifiwait;                                             // EXPERIMENTAL : temps d'attente suite allmuage wifi pour que le MQTT puisse répondre
+    static RTC_DATA_ATTR uint16_t _waitforMqttSend = SANSENSNODE_WAITFORMQTTSENDLOOP;       // nb of loop to wait for mqtt send to server
+    static RTC_DATA_ATTR uint16_t _waitforMqttReceive = SANSENSNODE_WAITFORMQTTRECEIVELOOP; // nb of loop to wait for mqtt receive from server
+    static RTC_DATA_ATTR uint8_t _EXPmqttattemps;                                           // EXPERIMENTAL : nb de tentatives pour connexion au server mqtt
+    static RTC_DATA_ATTR uint8_t _wifiMode = 4;                                             // WIFI MODE :    0=WIFI_MODE_NULL (no WIFI),1=WIFI_MODE_STA (WiFi station mode),2=WIFI_MODE_AP (WiFi soft-AP mode)
+    static RTC_DATA_ATTR uint8_t _loglevel = LOG_LEVEL;                                     // log level : 0=Off, 1=Critical, 2=Error, 3=Warning, 4=Info, 5=Debug
+                                                                                            // 3=WIFI_MODE_APSTA (WiFi station + soft-AP mode) 4=WIFI_MODE_MAX
+    static RTC_DATA_ATTR const char *_nodename{nullptr};
+    static RTC_DATA_ATTR const char *_ssid{nullptr};
+    static RTC_DATA_ATTR const char *_password{nullptr};
+    static RTC_DATA_ATTR const char *_mqtt_server{nullptr};
+
+    static RTC_DATA_ATTR bool _verboseMode;
+    static RTC_DATA_ATTR uint16_t _EXPmodetestmqttmessagestart = 100;
+
+    static RTC_DATA_ATTR uint8_t _maxMeasurementAttenmpts;
+
+    static std::function<void(flyingCollection::SanCodedStr const &)> _inputmessageCallback;
+    static std::function<bool(JsonColl &)> _collectdataCallback;
+    static std::function<void(SubMenu &)> _setupdevicesCallback;
+
+    const uint16_t _jsonoutbuffersize = 150;
+
+    SanSensNodeV2::SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver, int G, int Pfactor)
+    {
+
+        if (_firstinit) // première initialisation, ensuite on rentre dans ce constructeur à chaque reveil donc on ne doit pas réinitialiser les variables stockées dnas la RAM de la RTC
+        {
+            logdebug("enter SanSensNodeV2 ctor first init\n");
+            _awakemode = SANSENSNODE_STARTSAWAKEN;
+
+            _serial = true;
+            _Gi = 0;
+            _Pi = 0;
+            _EXPwifiwait = SANSENSNODE_WIFIWAITTIMEMS;
+            _EXPmqttattemps = SANSENSNODE_MQTTATTEMPTSNB;
+            _verboseMode = false;
+            _nodename = nodename;
+            _ssid = ssid;
+            _password = wifipasswd;
+            _mqtt_server = mqttserver;
+            _maxMeasurementAttenmpts = SANSENSNODE_MAX_MEASURES_ATTEMPTS;
+            _G_seconds = G;
+            _Pfactor = Pfactor;
+            _wifitrialsmax = SANSENSNODE_WIFITRIALSINIT;
+            _mqttsubscribe = SANSENSNODE_MQTTSUBSCRIBEATSTART;
+        }
+        loglevel((log_level_e)_loglevel);
+        this->mqttClient.setClient(__espClient);
+        setupSerialMenu();
+        ++_bootCount;
+        logdebug("end SanSensNodeV2 ctor\n");
+    }
+
+    void SanSensNodeV2::addDevice(DevicePlugin &device)
+    {
+        _devices.emplace_back(device);
+        device.hookSanSensInstance(this);
+    }
+
+    void SanSensNodeV2::Setup()
+    {
+        SetEnergyMode();
+
+        _deepsleep = new SANSENSNODE_NAMESPACE::DeepSleep();
+        _deepsleep->SetupTouchpadWakeup(SANSENSNODE_TOUCHPADTHRESHOLD, SANSENSNODE_TOUCHPADGPIO);
+
+        if (_serial)
+        {
+            delay(SANSENSNODE_WAITFORSERIALDELAY); // pour attendre port serie
+            Serial.begin(115200);
+            loginfo("#boot=%i\n", _bootCount);
+            logdebug("#awakemode:%i\n", _awakemode);
+            logdebug("G duration = %i\n", _G_seconds);
+            logdebug("P factor = %i\n", _Pfactor);
+            logdebug("WIFI mode = %i\n", _wifiMode);
+            logflush();
+        }
+
+        //setup the devices taken from the collection
+        if (_device_menu)
+        {
+            for (auto &dev : _devices)
+            {
+                dev.setupdevice(*_device_menu);
+            }
+
+            if (_setupdevicesCallback)
+                _setupdevicesCallback(*_device_menu);
+        }
+
+        if (_firstinit || (_deepsleep && (_deepsleep->getWakeup_reason() == ESP_SLEEP_WAKEUP_TOUCHPAD)))
+        {
+            //conditions for prompting menu at start (but with a small timeout to save battery in case of unwanted awake)
+            // auto op=_consolemenu->getOptions();
+            // op.firstExpirationTimeSec = 5;
+            // _consolemenu->setOptions(op);
+            // _consolemenu->launchMenu();
+            printf("input anything to show the menu. Expire in %i seconds", SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU);
+            waitListeningIOevents(SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU * 1000);
+        }
+
+        if (_firstinit)
+            _firstinit = false;
+    }
+
+    void SanSensNodeV2::Loop()
+    {
+
+        _Gi++;
+        _breakCurrentLoop = false;
+
+        SetLogTimeStart();
+
+        loginfo("G index:%i, millis=%i\n", _Gi, millis());
+
+        _measurementAttenmpts = 1;
+
+        datacoll = new JsonColl();
+
+        logdebug("measure start\n");
+        while (!SanSensNodeV2::collectMeasurement(datacoll) && _measurementAttenmpts <= _maxMeasurementAttenmpts)
+        {
+            _measurementAttenmpts++;
+        }
+        logdebug("measure end\n");
+        logflush();
+
+        if (_wifiMode > 0 && datacoll && _Gi % _Pfactor == 0)
+            SanSensNodeV2::mqttpubsub(datacoll);
+        if (!_breakCurrentLoop)
+            waitNextG();
+    }
+
+    bool SanSensNodeV2::bootAfterSleep()
+    {
+        return esp_sleep_get_wakeup_cause() != 0;
+    }
+
+    bool SanSensNodeV2::waitListeningIOevents(unsigned int waittimems)
+    {
+        if (waittimems > 500)
+            loginfo("wait");
+        for (size_t i = 0; i < waittimems / SANSENSNODE_WAITLOOPDELAYMS; i++)
+        {
+            if (i % (1000 / SANSENSNODE_WAITLOOPDELAYMS) == 0)
+            {
+                printf("."); //display 1 . every 500ms
+            }
+            if (_consolemenu->LoopCheckSerial() && _breakCurrentLoop)
+                return true;
+            delay(SANSENSNODE_WAITLOOPDELAYMS);
+        }
+        return false;
+    }
+
+    bool SanSensNodeV2::waitNextG()
+    {
+        if (_awakemode)
+        {
+            loginfo("Wait for %i s", _G_seconds);
+            logflush();
+            if (waitListeningIOevents(1000 * _G_seconds))
+                return true;
+        }
+        else
+        {
+            loginfo("Sleep for %i s\n", _G_seconds);
+            logflush();
+            SanSensNodeV2::DeepSleep();
+        }
+        return false;
+    }
+
+    void SanSensNodeV2::SetCollectDataCallback(std::function<bool(JsonColl &)> collectdatafunction)
+    {
+        _collectdataCallback = collectdatafunction;
+    }
+
+    //setup the callback called to setup the sensors
+    void SanSensNodeV2::SetSetupDeviceCallback(std::function<void(SubMenu &)> setupdevicesfunction)
+    {
+        _setupdevicesCallback = setupdevicesfunction;
+    }
+
+    void SanSensNodeV2::SetInputMessageCallback(std::function<void(flyingCollection::SanCodedStr const &)> inputmessagefunction)
+    {
+        _inputmessageCallback = inputmessagefunction;
+    }
+
+    void SanSensNodeV2::DeepSleep()
+    {
+        loginfo("Going to sleep,bye.\n");
+        logflush();
+
+        if (_deepsleep)
+        {
+            _deepsleep->SetupTimerWakeup(_G_seconds);
+            _deepsleep->GotoSleep();
+        }
+    }
+
+    char *SanSensNodeV2::getVersion()
+    {
+        sprintf(_sansensnodeversion, "%i.%i.%i", SANSENSNODE_VERSION_MAJOR, SANSENSNODE_VERSION_MINOR, SANSENSNODE_VERSION_REVISION);
+        return _sansensnodeversion;
+    }
+
+    SubMenu *SanSensNodeV2::getDeviceMenu()
+    {
+        return this->_device_menu;
+    }
+
+    /*
+private methods
+
+*/
+    bool SanSensNodeV2::mqttConnect()
+    {
+        uint8_t i = 0;
+        // Loop until we're reconnected
+        while (!mqttClient.connected())
+        {
+            loginfo("MQTT connection: ");
+            // Attempt to connect
+            if (!mqttClient.connect(_nodename))
+            {
+                logwarning("failed, rc=%i\n", mqttClient.state());
+                if (++i >= _EXPmqttattemps)
+                {
+                    logflush();
+                    return false;
+                }
+            }
+            loginfo("OK\n");
+            logflush();
+        }
+        return true;
+    }
+
+    //allow the client to process incoming messages and maintain its connection to the server.
+    bool SanSensNodeV2::WaitforMqtt(int nb)
+    {
+        int l;
+        for (int l = 0; l <= nb; l++)
+        {
+            if (!mqttClient.loop())
+            { //This should be called regularly to allow the client to process incoming messages and maintain its connection to the server.
+                logdebug("WaitforMqtt : mqtt client disconnected\n");
+                return true; // the client is no longer connected
+            }
+            delay(10);
+            // if (waitListeningIOevents(10))
+            //     return false;
+        }
+        return true;
+    }
+
+    bool SanSensNodeV2::mqttSubscribe()
+    {
+        if (!mqttClient.connected())
+        {
+            logwarning("can't subscribe: no mqtt connection\n");
+            logflush();
+            return false;
+        }
+        std::string intopic(SanSensNodeV2::_mqttTopicBaseName);
+        intopic.append(_nodename);
+        intopic.append("/in");
+        if (!mqttClient.subscribe(intopic.c_str(), 1))
+        {
+            logwarning("subscription to topic %s failed!\n", intopic.c_str());
+            logflush();
+            return false;
+        }
+        loginfo("mqtt subscription OK\n");
+        logflush();
+        return true;
+    }
+
+    bool SanSensNodeV2::collectMeasurement(JsonColl *dc)
+    {
+        if (dc && !collectMeasurement_internal(*dc))
+            return false;
+
+        for (auto &dev : _devices)
+        {
+            dev.collectdata(*dc);
+        }
+
+        if (_collectdataCallback && !_collectdataCallback(*dc))
+            return false;
+
+        return true;
+    }
+
+    // publish and subscribe to the respective MQTT chanels (open the connection and close after)
+    bool SanSensNodeV2::mqttpubsub(JsonColl *dc)
+    {
+        logdebug("enter mqttpubsub\n");
+
+        _mqttpayloadLength = 0;
+        uint32_t m0 = millis();
+        if (!Setup_wifi())
+            return false;
+        if (!mqttClient.connected())
+            if (!mqttConnect())
+                return false;
+        if (_mqttsubscribe)
+            mqttSubscribe(); // todo : action en cas de défaut de souscription??
+
+        // WaitforMqtt(15); // to wait for incoming messages
+
+        if (dc)
+        {
+            if (_measurementAttenmpts >= _maxMeasurementAttenmpts)
+                dc->add("SensorIssue", true);
+
+            std::string outopic(SanSensNodeV2::_mqttTopicBaseName);
+            outopic.append(_nodename);
+            outopic.append("/out");
+            logdebug("publish on %s\n", outopic.c_str());
+
+            auto vecres = dc->getJsons();
+            logdebug("nb jsons strings to publish: %i\n", vecres.size());
+            int i = 1;
+            for (const std::string &json : vecres)
+            {
+                if (!mqttClient.publish(outopic.c_str(), json.c_str(), true))
+                {
+                    logerror("publish failed at %i\n", i);
+                    break;
+                }
+                if (!WaitforMqtt(_waitforMqttSend))
+                    return false;
+                logdebug("publish pass %i OK : %s\n", i, json.c_str());
+            }
+
+            _Pi++;
+            logflush();
+        }
+        if (_mqttsubscribe)
+        {
+            logdebug("wait for incomming mqtt message\n");
+            if (!WaitforMqtt(_waitforMqttReceive))
+                return false;
+        }
+        wifiOff();
+        logflush();
+        HandleMqttReceive();
+
+        loginfo("wifi was on for %ims\n", millis() - m0);
+        logdebug("exit mqttpubsub\n");
+        logflush();
+        return true;
+    }
+
+    bool SanSensNodeV2::Setup_wifi()
+    {
+        delay(10);
+
+        logdebug("Connecting to %s, wifi mode=%i\n", _ssid, _wifiMode);
+        logflush();
+
+        WiFi.begin(_ssid, _password);
+        WiFi.mode((wifi_mode_t)_wifiMode);
+        int nb = 0;
+        while (WiFi.status() != WL_CONNECTED && nb++ < _wifitrialsmax)
+        {
+            if (waitListeningIOevents(_EXPwifiwait))
+                return false;
+        }
+        if (WiFi.status() != WL_CONNECTED)
+        {
+            logerror("Wifi not connected, expired wifitrialsmax\n");
+            logflush();
+            if (waitNextG())
+                return false;
+        }
+
+        loginfo("WiFi connected, IP address: ");
+        Serial.print(WiFi.localIP());
+        Serial.print(",\n");
+        logflush();
+
+        mqttClient.setServer(_mqtt_server, SANSENSNODE_MQTTPORT);
+        mqttClient.setCallback(mqttCallback);
+
+        return true;
+    }
+
+    void SanSensNodeV2::wifiOff()
+    {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+    }
+
+    void SanSensNodeV2::setupSerialMenu()
+    {
+        _consolemenu = new Menu<26>(); // menu-entries in this class ( 2 more in the sketch) (todo : to template)
+        //define options
+        MenuOptions menuoptions;
+        menuoptions.addBack = true;
+        menuoptions.addExitForEachLevel = true;
+        menuoptions.expirationTimeSec = 120;
+        _consolemenu->setOptions(menuoptions);
+        // menus & submenus definition
+        // root menus
+
+        SubMenu *root = _consolemenu->getRootMenu();
+        _device_menu = root->addSubMenu("device");
+        SubMenu *measure_menu = root->addSubMenu("measure")->addCallbackToChilds(breakLoop);
+        SubMenu *publication_menu = root->addSubMenu("publication")->addCallbackToChilds(breakLoop);
+        SubMenu *infos_menu = root->addSubMenu("infos");
+
+        publication_menu->addMenuitemUpdater("awake mode", &_awakemode);
+        publication_menu->addMenuitemUpdater("verbose mode", &_verboseMode);
+
+        measure_menu->addMenuitemUpdater("set G", &_G_seconds);
+        measure_menu->addMenuitemUpdater("measure trails max nb", &_maxMeasurementAttenmpts);
+
+        publication_menu->addMenuitemUpdater("set P", &_Pfactor);
+        publication_menu->addMenuitemUpdater("wait mqtt send", &_waitforMqttSend);
+        publication_menu->addMenuitemUpdater("wait mqtt receive", &_waitforMqttReceive);
+        publication_menu->addMenuitemUpdater("MQTT subscribe?", &_mqttsubscribe);
+        publication_menu->addMenuitemUpdater("wifiwait", &_EXPwifiwait);
+        publication_menu->addMenuitemUpdater("wifiattemps", &_EXPmqttattemps);
+        publication_menu->addMenuitemUpdater("wifi mode (1 to 4)", &_wifiMode);
+
+        SubMenu *smfreq = _device_menu->addSubMenu("set CPU freq")->addCallbackToChilds(SetEnergyMode)->addCallbackToChilds(breakLoop);
+        smfreq->addMenuitem()->SetLabel("80 Mhz")->addLambda([]() { _cpuFreq = 80; });
+        smfreq->addMenuitem()->SetLabel("160 Mhz")->addLambda([]() { _cpuFreq = 160; });
+        smfreq->addMenuitem()->SetLabel("240 Mhz")->addLambda([]() { _cpuFreq = 240; });
+
+        infos_menu->addMenuitemCallback("build infos", buildInfos);
+        infos_menu->addMenuitem()->SetLabel("RT infos")->addLambda([this]() { rtInfos(); });
+        // infos_menu->addMenuitem()->SetLabel("RT infos")->addLambda([_consolemenu]() { rtInfos(_consolemenu); });
+        // infos_menu->addMenuitemCallback("RT infos", rtInfos);
+        infos_menu->addMenuitemUpdater("Log level (0=off->5=debug)", &_loglevel)->addLambda([]() { loglevel((log_level_e)_loglevel); });
+    }
+
+    bool SanSensNodeV2::collectMeasurement_internal(JsonColl &dc)
+    {
+        //collect data and fill _datacollector with it
+        dc.add("device", _nodename);
+        dc.add("Gi", _Gi);
+        dc.add("Pi", _Pi);
+        double timeSinceStartup = esp_timer_get_time() / 1000000;
+        dc.add("uptime", timeSinceStartup);
+        if (_verboseMode)
+        {
+            dc.add("G_span", _G_seconds);
+            dc.add("P_nb", _Pfactor);
+            dc.add("freeram", (int)heap_caps_get_free_size(MALLOC_CAP_8BIT));
+            dc.add("boot count", _bootCount);
+            // dc.add("cpumhz", _cpuFreq);
+            // dc.add("Serial", _serial);
+            // dc.add("wifitrialsmax", _wifitrialsmax);
+            // dc.add("mqttattemps", _EXPmqttattemps);
+        }
+        return true;
+    }
+
+    bool SanSensNodeV2::mqttCallback(char *topic, uint8_t *payload, unsigned int length)
+    {
+        for (int i = 0; i < length; i++)
+        {
+            _mqttpayload[i] = (char)payload[i];
+        }
+        _mqttpayload[length] = '\0';
+        _mqttpayloadLength = length;
+        return true;
+    }
+
+    void SanSensNodeV2::HandleMqttReceive()
+    {
+        if (_mqttpayloadLength == 0)
+        {
+            logdebug("no mqtt message received\n");
+            logflush();
+            return;
+        }
+
+        logdebug("%i=Message received of length\n", _mqttpayloadLength);
+        logdebug("incomming mess:%s\n", _mqttpayload); //to delete
+        logflush();
+        bool asleep;
+
+        flyingCollection::SanCodedStr pyldic(_mqttpayload);
+        logdebug("SanCodedStrings initialized\n"); //to delete
+        logflush();
+        if (pyldic.tryGetValue("sleep", asleep))
+        {
+            _awakemode = !asleep;
+            logdebug("sleep:%i\n", _awakemode);
+        }
+
+        if (pyldic.tryGetValue("serial", _serial))
+        {
+            logdebug("serial:%i\n", _serial);
+            if (_serial)
+                Serial.begin(115200);
+            else
+                Serial.end();
+        }
+        if (pyldic.tryGetValue("G", _G_seconds))
+        {
+            logdebug("G:%is\n", _G_seconds);
+        }
+        if (pyldic.tryGetValue("P", _Pfactor))
+        {
+            logdebug("P:%i x G(=%is)\n", _Pfactor, _G_seconds);
+        }
+
+        for (auto &dev : _devices)
+        {
+            dev.onInputMessage(pyldic);
+        }
+
+        if (_inputmessageCallback)
+            _inputmessageCallback(pyldic);
+    }
+
+    bool SanSensNodeV2::buildInfos()
+    {
+#ifdef SANSENSNODE_SKETCHVERSION
+        printf("sketch V:%s\n", SANSENSNODE_SKETCHVERSION);
+#endif
+        printf("SanSensNodeV2 V:%s", getVersion());
+        printf("consoleMenu V:%s", Menubase::getVersion());
+        printf("__GNUG__:%i", __GNUG__);
+        printf("__cplusplus:%i", __cplusplus);
+        printf("__TIMESTAMP__:%i", __TIMESTAMP__);
+        logflush();
+        return false;
+    }
+
+    void SanSensNodeV2::rtInfos()
+    {
+        printf("cpu freq:%i\n", getCpuFrequencyMhz());
+        // printf("buffer capacity:%i\n", _lastbuffercapacity);
+        printf("console menu holds %i items\n", _consolemenu->size());
+        logflush();
+    };
+
+    bool SanSensNodeV2::SetEnergyMode()
+    {
+        setCpuFrequencyMhz(_cpuFreq);
+        return true;
+    }
+
+    bool SanSensNodeV2::breakLoop()
+    {
+        _breakCurrentLoop = true;
+        return true;
+    }
+} // namespace SANSENSNODE_NAMESPACE

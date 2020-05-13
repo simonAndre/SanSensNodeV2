@@ -19,8 +19,8 @@ const uint8_t oneWireBus = 5;
 
 //callback to implement if needed
 bool collectdata(JsonColl &collector);
-void InputMessageAction(flyingCollection::SanCodedStr const &data);
-void setupdevice(SubMenu &device_menu);
+// void InputMessageAction(flyingCollection::SanCodedStr const &data);
+// void setupdevice(SubMenu &device_menu);
 
 SanSensNodeV2 *_sensorNode;
 
@@ -29,8 +29,8 @@ void setup()
 {
  
     _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151", G_DURATION, P_FACTOR);
-    _sensorNode->SetSetupDeviceCallback(setupdevice);       //optional
-    _sensorNode->SetCollectDataCallback(collectdata);       //optional
+    // _sensorNode->SetSetupDeviceCallback(setupdevice);       //optional
+    // _sensorNode->SetCollectDataCallback(collectdata);       //optional
 
     DS18B20 *ds18b20 = new DS18B20(oneWireBus);
     _sensorNode->addDevice(*ds18b20);
@@ -41,7 +41,10 @@ void setup()
     TestPlugin *testplugin = new TestPlugin();
     _sensorNode->addDevice(*testplugin);
 
-    SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
+    VoltageProbe *voltage = new VoltageProbe();
+    _sensorNode->addDevice(*voltage);
+
+    // SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
 
     _sensorNode->Setup();
 

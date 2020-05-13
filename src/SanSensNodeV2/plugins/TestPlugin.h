@@ -11,6 +11,8 @@ namespace SANSENSNODE_NAMESPACE
         bool led2On();
 
     public:
+        TestPlugin();
+        virtual ~TestPlugin();
         virtual bool collectdata(JsonColl &collector) override;
         virtual void setupdevice(SubMenu &device_menu) override;
         virtual void onInputMessage(flyingCollection::SanCodedStr &data) override;

@@ -3,6 +3,10 @@
 
 namespace SANSENSNODE_NAMESPACE
 {
+
+	TestPlugin::TestPlugin() : DevicePlugin() {}
+	TestPlugin::~TestPlugin() {}
+
 	bool TestPlugin::led1On()
 	{
 		digitalWrite(LED1PIN, HIGH);
@@ -10,7 +14,13 @@ namespace SANSENSNODE_NAMESPACE
 		digitalWrite(LED1PIN, LOW);
 		return false;
 	}
-
+	bool TestPlugin::led2On()
+	{
+		digitalWrite(LED2PIN, HIGH);
+		this->getSanSensInstance().waitListeningIOevents(250);
+		digitalWrite(LED2PIN, LOW);
+		return false;
+	}
 	void TestPlugin::setupdevice(SubMenu &device_menu)
 	{
 		pinMode(LED1PIN, OUTPUT); // Initialize the LED2PIN pin as an output

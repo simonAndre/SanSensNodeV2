@@ -1,6 +1,8 @@
 #pragma once
 // #include "SanSensNodeV2.h"
 #include <flyingCollection.h>
+#include "specialTypes.h"
+#include <consoleMenu.h>
 
 namespace SANSENSNODE_NAMESPACE
 {
