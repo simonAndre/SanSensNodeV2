@@ -1,52 +1,14 @@
 #pragma once
-#include <flyingCollection.h>
-#include "devicePlugin.h"
 #include "DeepSleep.hpp"
+#include "DevicePlugin.h"
+#include <flyingCollection.h>
 
 namespace SANSENSNODE_NAMESPACE
 {
-    typedef JsonStream<106> JsonColl;
 
-    static char _menuswitch_buff[SANSENSNODE_STRING_BUFFER_SIZE];
-    static char _sansensnodeversion[10];
-    static char _mqttpayload[SANSENSNODE_MQTTRECEIVEMESSAGE_SIZE];
-    static uint16_t _mqttpayloadLength = 0;
-    static bool _breakCurrentLoop = false;
+ 
+  
 
-    static WiFiClient __espClient;
-    static RTC_DATA_ATTR int _bootCount = 0;                                                // store "boot" (restart after sleep) counting (in the RTC resilient RAM memory)
-    static RTC_DATA_ATTR bool _firstinit = true;                                            //
-    static RTC_DATA_ATTR bool _awakemode;                                                   // while in awake mode => don't go to sleep on each G cycle until a sleep order has been received
-    static RTC_DATA_ATTR bool _mqttsubscribe;                                               // if not subscribe : doesn't respond to mqtt event (only send to server)s
-    static RTC_DATA_ATTR uint16_t _G_seconds;                                               // measurement cycle time ie: sleep time (in seconds) (in awake mode and sleep mode)
-    static RTC_DATA_ATTR uint16_t _Pfactor;                                                 // publication and mqtt connection frequency (in G multiples)
-    static RTC_DATA_ATTR bool _serial;                                                      // false to disable output serial log
-    static RTC_DATA_ATTR uint8_t _cpuFreq = SANSENSNODE_STARTINGCPUFREQ;                    // CPU operating frequency
-    static RTC_DATA_ATTR uint8_t _wifitrialsmax;                                            // nb max of attemps to check the wifi network for a wakeup cycle
-    static RTC_DATA_ATTR uint32_t _Gi;                                                      // store the current cycle index (G or measurement cycle)
-    static RTC_DATA_ATTR uint32_t _Pi;                                                      // store the current publication index (P)
-    static RTC_DATA_ATTR uint16_t _EXPwifiwait;                                             // EXPERIMENTAL : temps d'attente suite allmuage wifi pour que le MQTT puisse répondre
-    static RTC_DATA_ATTR uint16_t _waitforMqttSend = SANSENSNODE_WAITFORMQTTSENDLOOP;       // nb of loop to wait for mqtt send to server
-    static RTC_DATA_ATTR uint16_t _waitforMqttReceive = SANSENSNODE_WAITFORMQTTRECEIVELOOP; // nb of loop to wait for mqtt receive from server
-    static RTC_DATA_ATTR uint8_t _EXPmqttattemps;                                           // EXPERIMENTAL : nb de tentatives pour connexion au server mqtt
-    static RTC_DATA_ATTR uint8_t _wifiMode = 4;                                             // WIFI MODE :    0=WIFI_MODE_NULL (no WIFI),1=WIFI_MODE_STA (WiFi station mode),2=WIFI_MODE_AP (WiFi soft-AP mode)
-    static RTC_DATA_ATTR uint8_t _loglevel = LOG_LEVEL;                                     // log level : 0=Off, 1=Critical, 2=Error, 3=Warning, 4=Info, 5=Debug
-                                                                                            // 3=WIFI_MODE_APSTA (WiFi station + soft-AP mode) 4=WIFI_MODE_MAX
-    static RTC_DATA_ATTR const char *_nodename{nullptr};
-    static RTC_DATA_ATTR const char *_ssid{nullptr};
-    static RTC_DATA_ATTR const char *_password{nullptr};
-    static RTC_DATA_ATTR const char *_mqtt_server{nullptr};
-
-    static RTC_DATA_ATTR bool _verboseMode;
-    static RTC_DATA_ATTR uint16_t _EXPmodetestmqttmessagestart = 100;
-
-    static RTC_DATA_ATTR uint8_t _maxMeasurementAttenmpts;
-
-    static std::function<void(SanCodedStr)> _inputmessageCallback;
-    static std::function<bool(JsonColl *)> _collectdataCallback;
-    static std::function<void()> _setupdevicesCallback;
-
-    const uint16_t _jsonoutbuffersize = 150;
 
     // template<Tdatarow
     class SanSensNodeV2
@@ -94,9 +56,15 @@ namespace SANSENSNODE_NAMESPACE
             logdebug("end SanSensNodeV2 ctor\n");
         }
 
-        void addDevice(const devicePlugin& device)
+        /**
+ * @brief Fill the device collection
+ * 
+ * @param device 
+ */
+        void addDevice(DevicePlugin &device)
         {
             _devices.emplace_back(device);
+            device.hookSanSensInstance(this);
         }
 
         /**
@@ -122,11 +90,17 @@ namespace SANSENSNODE_NAMESPACE
                 logflush();
             }
 
-            if (_setupdevicesCallback)
-                _setupdevicesCallback();
-            else
-                logdebug("no _setupdevicesCallback defined\n");
-            logflush();
+            //setup the devices taken from the collection
+            if (_device_menu)
+            {
+                for (auto &dev : _devices)
+                {
+                    dev.setupdevice(*_device_menu);
+                }
+
+                if (_setupdevicesCallback)
+                    _setupdevicesCallback(*_device_menu);
+            }
 
             if (_firstinit || (_deepsleep && (_deepsleep->getWakeup_reason() == ESP_SLEEP_WAKEUP_TOUCHPAD)))
             {
@@ -234,17 +208,18 @@ namespace SANSENSNODE_NAMESPACE
         }
 
         // called to collect sensors data to be sent via mqtt
-        void SetCollectDataCallback(std::function<bool(JsonColl *)> collectdatafunction)
+        void SetCollectDataCallback(std::function<bool(JsonColl&)> collectdatafunction)
         {
             _collectdataCallback = collectdatafunction;
         }
 
         //setup the callback called to setup the sensors
-        void SetSetupDeviceCallback(std::function<void()> setupdevicesfunction)
+        void SetSetupDeviceCallback(std::function<void(SubMenu &)> setupdevicesfunction)
         {
             _setupdevicesCallback = setupdevicesfunction;
         }
-        static void SetInputMessageCallback(std::function<void(SanCodedStr)> inputmessagefunction)
+
+        static void SetInputMessageCallback(std::function<void(flyingCollection::SanCodedStr const &)> inputmessagefunction)
         {
             _inputmessageCallback = inputmessagefunction;
         }
@@ -294,7 +269,7 @@ namespace SANSENSNODE_NAMESPACE
         uint8_t _measurementAttenmpts;
         const char *_mqttTopicBaseName{"/ssnet/"};
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
-        std::vector<devicePlugin> _devices;
+        std::vector<DevicePlugin> _devices;
 
         bool
         mqttConnect()
@@ -362,15 +337,16 @@ namespace SANSENSNODE_NAMESPACE
 
         bool collectMeasurement(JsonColl *dc)
         {
-            if (dc && !collectMeasurement_internal(dc))
+            if (dc && !collectMeasurement_internal(*dc))
                 return false;
-            if (_collectdataCallback)
+
+            for (auto &dev : _devices)
             {
-                if (!_collectdataCallback(dc))
-                    return false;
+                dev.collectdata(*dc);
             }
-            else
-                logdebug("no collectdata Callback defined\n");
+
+            if (_collectdataCallback && !_collectdataCallback(*dc))
+                return false;
 
             return true;
         }
@@ -525,26 +501,24 @@ namespace SANSENSNODE_NAMESPACE
             infos_menu->addMenuitemUpdater("Log level (0=off->5=debug)", &_loglevel)->addLambda([]() { loglevel((log_level_e)_loglevel); });
         }
 
-        bool collectMeasurement_internal(JsonColl *dc)
+        bool collectMeasurement_internal(JsonColl &dc)
         {
-            if (!dc)
-                return false;
             //collect data and fill _datacollector with it
-            dc->add("device", _nodename);
-            dc->add("Gi", _Gi);
-            dc->add("Pi", _Pi);
+            dc.add("device", _nodename);
+            dc.add("Gi", _Gi);
+            dc.add("Pi", _Pi);
             double timeSinceStartup = esp_timer_get_time() / 1000000;
-            dc->add("uptime", timeSinceStartup);
+            dc.add("uptime", timeSinceStartup);
             if (_verboseMode)
             {
-                dc->add("G_span", _G_seconds);
-                dc->add("P_nb", _Pfactor);
-                dc->add("freeram", (int)heap_caps_get_free_size(MALLOC_CAP_8BIT));
-                dc->add("boot count", _bootCount);
-                // dc->add("cpumhz", _cpuFreq);
-                // dc->add("Serial", _serial);
-                // dc->add("wifitrialsmax", _wifitrialsmax);
-                // dc->add("mqttattemps", _EXPmqttattemps);
+                dc.add("G_span", _G_seconds);
+                dc.add("P_nb", _Pfactor);
+                dc.add("freeram", (int)heap_caps_get_free_size(MALLOC_CAP_8BIT));
+                dc.add("boot count", _bootCount);
+                // dc.add("cpumhz", _cpuFreq);
+                // dc.add("Serial", _serial);
+                // dc.add("wifitrialsmax", _wifitrialsmax);
+                // dc.add("mqttattemps", _EXPmqttattemps);
             }
             return true;
         }
@@ -574,7 +548,7 @@ namespace SANSENSNODE_NAMESPACE
             logflush();
             bool asleep;
 
-            SanCodedStr pyldic(_mqttpayload);
+            flyingCollection::SanCodedStr pyldic(_mqttpayload);
             logdebug("SanCodedStrings initialized\n"); //to delete
             logflush();
             if (pyldic.tryGetValue("sleep", asleep))
@@ -598,6 +572,11 @@ namespace SANSENSNODE_NAMESPACE
             if (pyldic.tryGetValue("P", _Pfactor))
             {
                 logdebug("P:%i x G(=%is)\n", _Pfactor, _G_seconds);
+            }
+
+            for (auto &dev : _devices)
+            {
+                dev.onInputMessage(pyldic);
             }
 
             if (_inputmessageCallback)
