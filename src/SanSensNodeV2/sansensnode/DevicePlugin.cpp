@@ -28,11 +28,13 @@ namespace SANSENSNODE_NAMESPACE
         return _devicename.c_str();
     }
 
-    void DevicePlugin::hookSanSensInstance(SanSensNodeV2 *instance) {}
+    void DevicePlugin::hookSanSensInstance(SanSensNodeV2 *instance){
+        _sansens_instance = instance;
+    }
 
-    SanSensNodeV2* DevicePlugin::getSanSensInstance()
+    SanSensNodeV2 *DevicePlugin::getSanSensInstance()
     {
-        throw std::runtime_error(SANSENSNODE_NOTIMPL);
+        return _sansens_instance;
     }
 
 } // namespace SANSENSNODE_NAMESPACE

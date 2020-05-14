@@ -1,12 +1,12 @@
 #include <Arduino.h>
 #include "../Configuration.h"
 #include "../Namespace.h"
-#include "SanSensNodeV2.h"
+#include <flyingCollection.h>
 #include "specialTypes.h"
 #include <WiFi.h>
 #include "../platform_logger.h"
-#include <vector>
 #include <iterator>
+#include "SanSensNodeV2.h"
 
 namespace SANSENSNODE_NAMESPACE
 {
@@ -46,11 +46,31 @@ namespace SANSENSNODE_NAMESPACE
 
     static RTC_DATA_ATTR uint8_t _maxMeasurementAttenmpts;
 
+
     static std::function<void(flyingCollection::SanCodedStr const &)> _inputmessageCallback;
     static std::function<bool(JsonColl &)> _collectdataCallback;
     static std::function<void(SubMenu &)> _setupdevicesCallback;
 
     const uint16_t _jsonoutbuffersize = 150;
+
+
+
+
+
+    SanSensNodeV2::~SanSensNodeV2()
+    {
+        // for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
+        // {
+        //     delete *device_iter;
+        // }
+        // _devices.clear();
+        printf("~SanSensNodeV2\n");
+
+        // for (size_t i = 0; i < _deviceidx; i++)
+        // {
+        //     delete _devicesarr[i];
+        // }
+    }
 
     SanSensNodeV2::SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver, int G, int Pfactor)
     {
@@ -75,49 +95,58 @@ namespace SANSENSNODE_NAMESPACE
             _Pfactor = Pfactor;
             _wifitrialsmax = SANSENSNODE_WIFITRIALSINIT;
             _mqttsubscribe = SANSENSNODE_MQTTSUBSCRIBEATSTART;
+            this->_deviceidx = 0;
         }
+        _devices.clear();
+        _devices.reserve(4);
+
         loglevel((log_level_e)_loglevel);
         this->mqttClient.setClient(__espClient);
         setupSerialMenu();
         ++_bootCount;
+        if (_serial)
+        {
+            delay(SANSENSNODE_WAITFORSERIALDELAY); // pour attendre port serie
+            Serial.begin(115200);
+        }
         logdebug("end SanSensNodeV2 ctor\n");
     }
 
-    void SanSensNodeV2::addDevice(DevicePlugin &device)
+    void SanSensNodeV2::addDevice(DevicePlugin *device)
     {
-        Serial.print("EXP add device");
-        Serial.print("address:");
-        Serial.println((unsigned long)&device);
-        Serial.print("name:");
-        Serial.print(device.getDeviceName());
+        logflush();
+        printf("EXP add device\n");
+        printf("%s, addr : %x; _deviceidx=%i\n ", device->getDeviceName(), device, _deviceidx);
+        _devices.emplace_back(device);
 
-        // printf("% s, addr : % x\n ", device.getDeviceName(), &device);
-
-        // _devices.emplace_back(&device);
-        _devicesarr[_deviceidx++] = &device;
-
-        device.hookSanSensInstance(this);
-        Serial.print("EXP end add device");
+        // _devicesarr[_deviceidx++] = device;
+        device->hookSanSensInstance(this);
+        printf("EXP end add device\n");
     }
 
     void SanSensNodeV2::Setup()
     {
+        printf("EXP test stage\n");
         int i = 0;
-        Serial.println("EXP test stage");
-        for (size_t i = 0; i < EXP_NBDEVICESMAX; i++)
+
+        for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
         {
-            DevicePlugin *mydevice = _devicesarr[i];
-            printf("%i\n",i);
+            printf("iter %i\n", ++i);
+            DevicePlugin *mydevice = *device_iter;
+        // for (size_t i = 0; i < _deviceidx; i++)
+        // {
+        //     auto mydevice = _devicesarr[i];
+        //     printf("iter %i\n", i);
+
             if (mydevice)
             {
-                printf(" adress : %x \n",  mydevice);
+                printf(" adress : %x \n", mydevice);
                 if ((uint64_t)mydevice <= 0xffffffff)
                 {
                     // printf("EXP %i entering setupdevice on %s\n", i, dev->getDeviceName());
-                    printf("EXP %i entering setupdevice ", i);
-                        Serial.print((mydevice)->getDeviceName());
-                        Serial.print(" ok ");
-                    Serial.println("..");
+                    printf("device name: ");
+                    printf("device name: %s ", mydevice->getDeviceName());
+                    printf(" ok\n");
                 }
             }
         }
@@ -130,8 +159,8 @@ namespace SANSENSNODE_NAMESPACE
 
         if (_serial)
         {
-            delay(SANSENSNODE_WAITFORSERIALDELAY); // pour attendre port serie
-            Serial.begin(115200);
+            // delay(SANSENSNODE_WAITFORSERIALDELAY); // pour attendre port serie
+            // Serial.begin(115200);
             loginfo("#boot=%i\n", _bootCount);
             logdebug("#awakemode:%i\n", _awakemode);
             logdebug("G duration = %i\n", _G_seconds);
@@ -140,18 +169,22 @@ namespace SANSENSNODE_NAMESPACE
             logflush();
         }
 
-        //setup the devices taken from the collection
+        // setup the devices taken from the collection
         if (_device_menu)
         {
             for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
             {
-                if (*device_iter)
+                DevicePlugin *mydevice = *device_iter;
+            // for (size_t i = 0; i < _deviceidx; i++)
+            // {
+            //     DevicePlugin *mydevice = _devicesarr[i];
+                if (mydevice)
                 {
                     // printf("EXP %i entering setupdevice on %s\n", i, dev->getDeviceName());
                     Serial.print("EXP entering setupdevice on");
-                    Serial.print((*device_iter)->getDeviceName());
+                    Serial.print(mydevice->getDeviceName());
                     Serial.println("..");
-                    (*device_iter)->setupdevice(*_device_menu);
+                    mydevice->setupdevice(*_device_menu);
                 }
             }
 
@@ -210,6 +243,17 @@ namespace SANSENSNODE_NAMESPACE
     bool SanSensNodeV2::bootAfterSleep()
     {
         return esp_sleep_get_wakeup_cause() != 0;
+    }
+
+    /**
+ * @brief true if hte start is issued by a true start (or reset), false if its a wakeup after a deepsleep (in this case, we can recover some state from the RTC RAM)
+ * 
+ * @return true 
+ * @return false 
+ */
+    bool SanSensNodeV2::isFirstInit()
+    {
+        return _firstinit;
     }
 
     bool SanSensNodeV2::waitListeningIOevents(unsigned int waittimems)
@@ -358,10 +402,17 @@ private methods
         if (dc && !collectMeasurement_internal(*dc))
             return false;
 
-        for (auto &dev : _devices)
+        for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
         {
-            printf("EXP entering collectdata on %s\n", dev->getDeviceName());
-            dev->collectdata(*dc);
+            DevicePlugin *mydevice = *device_iter;
+        // for (size_t i = 0; i < _deviceidx; i++)
+        // {
+        //     DevicePlugin *mydevice = _devicesarr[i];
+            if (mydevice)
+            {
+                printf("EXP entering collectdata on %s\n", mydevice->getDeviceName());
+                mydevice->collectdata(*dc);
+            }
         }
 
         if (_collectdataCallback && !_collectdataCallback(*dc))
@@ -516,8 +567,8 @@ private methods
         infos_menu->addMenuitemUpdater("Log level (0=off->5=debug)", &_loglevel)->addLambda([]() { loglevel((log_level_e)_loglevel); });
 
         network_menu->addMenuitemUpdater("node name", _nodename, 20);
-        network_menu->addMenuitemUpdater("wifi ssid", _ssid, 40);
-        network_menu->addMenuitemUpdater("wifi password", _password, 30);
+        network_menu->addMenuitemUpdater("wifi ssid", _ssid, 30);
+        network_menu->addMenuitemUpdater("wifi password", _password,30);
         network_menu->addMenuitemUpdater("mqtt server", _mqtt_server, 15);
     }
 
@@ -594,10 +645,18 @@ private methods
             logdebug("P:%i x G(=%is)\n", _Pfactor, _G_seconds);
         }
 
-        for (auto &dev : _devices)
+        for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
         {
-            printf("EXP onInputMessage on %s\n", dev->getDeviceName());
-            dev->onInputMessage(pyldic);
+            DevicePlugin *mydevice = *device_iter;
+
+        // for (size_t i = 0; i < _deviceidx; i++)
+        // {
+        //     DevicePlugin *mydevice = _devicesarr[i];
+            if (mydevice)
+            {
+                printf("EXP onInputMessage on %s\n", mydevice->getDeviceName());
+                mydevice->onInputMessage(pyldic);
+            }
         }
 
         if (_inputmessageCallback)

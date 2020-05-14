@@ -9,6 +9,7 @@ tested on ESP32
 #include "DevicePlugin.h"
 #include <functional>
 #include <PubSubClient.h>
+#include <vector>
 
 #define EXP_NBDEVICESMAX 5
 
@@ -34,12 +35,14 @@ namespace SANSENSNODE_NAMESPACE
          */
         SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver, int G, int Pfactor);
 
+        ~SanSensNodeV2();
+
         /**
          * @brief Fill the device collection
          * 
          * @param device 
          */
-        void addDevice(DevicePlugin &device);
+        void addDevice(DevicePlugin* device);
 
         /**
          * @brief called by main sketch
@@ -95,6 +98,8 @@ namespace SANSENSNODE_NAMESPACE
 
         SubMenu *getDeviceMenu();
 
+        bool isFirstInit();
+
     private:
         PubSubClient mqttClient;
         JsonColl *datacoll;
@@ -106,13 +111,15 @@ namespace SANSENSNODE_NAMESPACE
         uint8_t _measurementAttenmpts;
         const char *_mqttTopicBaseName{"/ssnet/"};
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
-        //std::vector<DevicePlugin*> _devices;
-       
-        DevicePlugin *_devicesarr[EXP_NBDEVICESMAX];
-        uint8_t _deviceidx = 0;
-      
-      
-      
+
+
+
+
+        std::vector<DevicePlugin *> _devices;
+
+        // DevicePlugin *_devicesarr[EXP_NBDEVICESMAX];
+        uint8_t _deviceidx;
+
         bool mqttConnect();
 
         //allow the client to process incoming messages and maintain its connection to the server.

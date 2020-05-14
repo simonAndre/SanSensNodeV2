@@ -36,6 +36,6 @@ namespace SANSENSNODE_NAMESPACE
         virtual void onInputMessage(flyingCollection::SanCodedStr &data);
         virtual const char *getDeviceName();
         void hookSanSensInstance(SanSensNodeV2 *instance);
-        SanSensNodeV2* getSanSensInstance();
+        virtual SanSensNodeV2* getSanSensInstance();
     };
 } // namespace SANSENSNODE_NAMESPACE
