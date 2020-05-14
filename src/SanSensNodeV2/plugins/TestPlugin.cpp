@@ -4,32 +4,33 @@
 namespace SANSENSNODE_NAMESPACE
 {
 
-	TestPlugin::TestPlugin() : DevicePlugin() {}
+	TestPlugin::TestPlugin() : DevicePlugin("TestPlugin") {}
 	TestPlugin::~TestPlugin() {}
 
 	bool TestPlugin::led1On()
 	{
 		digitalWrite(LED1PIN, HIGH);
-		this->getSanSensInstance().waitListeningIOevents(250);
+		this->getSanSensInstance()->waitListeningIOevents(250);
 		digitalWrite(LED1PIN, LOW);
 		return false;
 	}
 	bool TestPlugin::led2On()
 	{
 		digitalWrite(LED2PIN, HIGH);
-		this->getSanSensInstance().waitListeningIOevents(250);
+		this->getSanSensInstance()->waitListeningIOevents(250);
 		digitalWrite(LED2PIN, LOW);
 		return false;
 	}
 	void TestPlugin::setupdevice(SubMenu &device_menu)
 	{
+		Serial.println("enter setupdevice TestPlugin\n");
 		pinMode(LED1PIN, OUTPUT); // Initialize the LED2PIN pin as an output
 		pinMode(LED2PIN, OUTPUT); // Initialize the LED2PIN pin as an output
 
 		//hook up additional menu entries
 		device_menu.SetLabel("switch led 1")->addLambda([&]() { led1On(); });
 		device_menu.SetLabel("switch led 2")->addLambda([&]() { led2On(); });
-		logdebug("setupdevice TestPlugin done\n");
+		Serial.println("setupdevice TestPlugin done\n");
 	}
 
 	bool TestPlugin::collectdata(JsonColl &collector)

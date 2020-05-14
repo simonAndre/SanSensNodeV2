@@ -4,6 +4,7 @@
 #include "specialTypes.h"
 #include <consoleMenu.h>
 
+
 namespace SANSENSNODE_NAMESPACE
 {
 
@@ -15,10 +16,13 @@ namespace SANSENSNODE_NAMESPACE
     class DevicePlugin
     {
     private:
-        SanSensNodeV2* _sansens_instance;
+        SanSensNodeV2 *_sansens_instance;
+
+    protected:
+        std::string _devicename;
 
     public:
-        DevicePlugin();
+        DevicePlugin(const char *devicename);
         virtual ~DevicePlugin();
 
         virtual bool collectdata(JsonColl &collector);
@@ -30,7 +34,8 @@ namespace SANSENSNODE_NAMESPACE
          */
         virtual void setupdevice(SubMenu &device_menu);
         virtual void onInputMessage(flyingCollection::SanCodedStr &data);
+        virtual const char *getDeviceName();
         void hookSanSensInstance(SanSensNodeV2 *instance);
-        SanSensNodeV2 getSanSensInstance();
+        SanSensNodeV2* getSanSensInstance();
     };
 } // namespace SANSENSNODE_NAMESPACE

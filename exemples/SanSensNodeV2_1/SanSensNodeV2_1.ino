@@ -1,9 +1,9 @@
 #define ARDUINO 150 //test sAN doit être setté par l'IDE
 
-#define USE_DS18B20
-#define USE_DHT22
+// #define USE_DS18B20
+// #define USE_DHT22
 #define USE_TEST
-#define USE_VOLTAGEPROBE
+// #define USE_VOLTAGEPROBE
 
 #include <SanSensNodeV2.h>
 
@@ -24,25 +24,24 @@ bool collectdata(JsonColl &collector);
 
 SanSensNodeV2 *_sensorNode;
 
-
 void setup()
 {
- 
-    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151", G_DURATION, P_FACTOR);
+
+    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "", "192.168.2.151", G_DURATION, P_FACTOR);
     // _sensorNode->SetSetupDeviceCallback(setupdevice);       //optional
     // _sensorNode->SetCollectDataCallback(collectdata);       //optional
 
-    DS18B20 *ds18b20 = new DS18B20(oneWireBus);
-    _sensorNode->addDevice(*ds18b20);
+    // DS18B20 *ds18b20 = new DS18B20(oneWireBus);
+    // _sensorNode->addDevice(*ds18b20);
 
-    DHT22 *dht = new DHT22(DHTpin);
-    _sensorNode->addDevice(*dht);
-
+    // DHT22 *dht = new DHT22(DHTpin);
+    // _sensorNode->addDevice(*dht);
+    Serial.println("add tetplugin\n");
     TestPlugin *testplugin = new TestPlugin();
     _sensorNode->addDevice(*testplugin);
 
-    VoltageProbe *voltage = new VoltageProbe();
-    _sensorNode->addDevice(*voltage);
+    // VoltageProbe *voltage = new VoltageProbe();
+    // _sensorNode->addDevice(*voltage);
 
     // SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
 
@@ -54,5 +53,3 @@ void loop()
 {
     _sensorNode->Loop();
 }
-
-

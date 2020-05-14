@@ -1,32 +1,38 @@
 #include "../Configuration.h"
 #include "../Namespace.h"
+#include "../platform_logger.h"
 #include "DevicePlugin.h"
-#include "SanSensNodeV2.h"
+#include <Arduino.h>
+
 
 namespace SANSENSNODE_NAMESPACE
 {
-    DevicePlugin::DevicePlugin() {}
+
+    DevicePlugin::DevicePlugin(const char *devicename) : _devicename(std::string(devicename))
+    {
+    }
+
     DevicePlugin::~DevicePlugin() {}
 
-    void DevicePlugin::hookSanSensInstance(SanSensNodeV2* instance)
+    bool DevicePlugin::collectdata(JsonColl &collector)
     {
-        _sansens_instance = instance;
+        throw std::runtime_error(SANSENSNODE_NOTIMPL);
     }
 
-    SanSensNodeV2  DevicePlugin::getSanSensInstance(){
-        return *_sansens_instance;
+    void DevicePlugin::setupdevice(SubMenu &device_menu) {}
+
+    void DevicePlugin::onInputMessage(flyingCollection::SanCodedStr &data) {}
+
+    inline const char *DevicePlugin::getDeviceName()
+    {
+        return _devicename.c_str();
     }
 
-    bool DevicePlugin::collectdata(JsonColl &collector){
-        return false;
-    }
+    void DevicePlugin::hookSanSensInstance(SanSensNodeV2 *instance) {}
 
-    /**
-         * @brief device setup actions and console menu entries
-         * 
-         * @param device_menu : "device" section submenu, to hook up additional menu entries 
-         */
-    void DevicePlugin::setupdevice(SubMenu &device_menu){}
-    void DevicePlugin::onInputMessage(flyingCollection::SanCodedStr &data){}
+    SanSensNodeV2* DevicePlugin::getSanSensInstance()
+    {
+        throw std::runtime_error(SANSENSNODE_NOTIMPL);
+    }
 
 } // namespace SANSENSNODE_NAMESPACE

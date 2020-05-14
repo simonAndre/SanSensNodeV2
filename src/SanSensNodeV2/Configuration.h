@@ -23,6 +23,7 @@
 #define SANSENSNODE_WAITLOOPDELAYMS 100 // define the atomic wait time in ms between 2 serial checks, see sanSensNet::waitWithSerialCheck method
 #define SANSENSNODE_TOUCHPADTHRESHOLD 40 // touchepad wakup sensibility (greater is more sensitive)
 #define SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU 5       // in seconds, delay to wait for a user interraction to display menu after the firt boot or an awake by the touchpad
+#define SANSENSNODE_NOTIMPL "method not implemented"
 // computer or embedded?
 #ifndef SANSENSNODE_EMBEDDED_MODE
 #if defined(ARDUINO)                /* Arduino*/                 \

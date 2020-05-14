@@ -2,7 +2,7 @@
 #include <Arduino.h>
 namespace SANSENSNODE_NAMESPACE
 {
-	DHT22::DHT22(uint8_t dhtpin) : DevicePlugin()
+	DHT22::DHT22(uint8_t dhtpin) : DevicePlugin("DHT22")
 	{
 		this->_dhtpin = dhtpin;
 	}
@@ -13,6 +13,7 @@ namespace SANSENSNODE_NAMESPACE
 
 	void DHT22::setupdevice(SubMenu &device_menu)
 	{
+		logdebug("enter setupdevice DHT22\n");
 		//hook up additional menu entries
 		// SubMenu *device_menu = _sensorNode->getDeviceMenu();
 		device_menu.addMenuitemUpdater("DHT warmup time (ms)", &_dhtWarmupTime);

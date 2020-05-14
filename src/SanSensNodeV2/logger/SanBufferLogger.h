@@ -47,7 +47,7 @@ class SanBufferLogger final : public LoggerBase
 
 
 	virtual void log_customprefix() override{
-		print("%i ", millis() - _timeAtLoopStart);
+		// print("%i ", millis() - _timeAtLoopStart);
 	}
 
 	void flush() noexcept final
@@ -72,7 +72,7 @@ class SanBufferLogger final : public LoggerBase
 	 */
 	static void SetLogTimeStart()
 	{
-		_timeAtLoopStart =millis();
+		// _timeAtLoopStart =millis();
 	}
 	
 
