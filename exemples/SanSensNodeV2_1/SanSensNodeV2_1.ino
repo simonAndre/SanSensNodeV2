@@ -17,7 +17,7 @@ const uint8_t oneWireBus = 5;
 #define SANSENSNODE_DEVICE_GDURATION 10
 #define SANSENSNODE_DEVICE_PFACTOR 1
 
-//#define SANSENSNODE_LOG_USEBUFFER // if defined : use a buffer, you need to call logflush() to flush the log buffer the logger is available even before the activation of Serial.begin \
+#define SANSENSNODE_LOG_USEBUFFER // if defined : use a buffer, you need to call logflush() to flush the log buffer the logger is available even before the activation of Serial.begin \
                                   // if not defined : immediate logging
 
 

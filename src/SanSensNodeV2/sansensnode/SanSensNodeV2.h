@@ -9,7 +9,6 @@ tested on ESP32
 #include "SensorPlugin.h"
 #include <functional>
 #include <PubSubClient.h>
-#include <vector>
 
 
 namespace SANSENSNODE_NAMESPACE
@@ -111,8 +110,6 @@ namespace SANSENSNODE_NAMESPACE
         uint8_t _measurementAttenmpts;
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
 
-        // std::vector<DevicePlugin *> _devices;
-    
         bool mqttConnect();
 
         //allow the client to process incoming messages and maintain its connection to the server.

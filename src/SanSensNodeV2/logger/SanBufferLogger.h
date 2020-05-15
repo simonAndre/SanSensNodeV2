@@ -17,7 +17,7 @@ public:
 	/// Default constructor
 	SanBufferLogger() : LoggerBase() {}
 #else
-	SanBufferLogger() : LoggerBase(false, (log_level_e)5, true)
+	SanBufferLogger() : LoggerBase(true, (log_level_e)5, true)
 	{
 	}
 #endif

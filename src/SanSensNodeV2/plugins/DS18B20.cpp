@@ -4,7 +4,7 @@ namespace SANSENSNODE_NAMESPACE
 {
 	RTC_DATA_ATTR int _WarmupTime;
 	char addstr[16]{'0'};
-	const char *getAddress(DeviceAddress deviceAddress);//forward decl
+	const char *getAddress(DeviceAddress deviceAddress); //forward decl
 
 	DS18B20::DS18B20(uint8_t oneWireBus) : SensorPlugin("DS18B20"), _oneWireBus(oneWireBus)
 	{
@@ -24,7 +24,6 @@ namespace SANSENSNODE_NAMESPACE
 		//hook up additional menu entries
 		sensor_menu.addMenuitemUpdater("warmup time (ms)", &_WarmupTime);
 	}
-
 
 	void DS18B20::setupsensor()
 	{
@@ -78,13 +77,26 @@ namespace SANSENSNODE_NAMESPACE
 			for (int i = 0; i < numberOfDevices; i++)
 			{
 				// Search the wire for address
-				if (sensors->getAddress(tempDeviceAddress, i))
+				logdebug("requesting getAddress for %i\n", i);
+				try
 				{
-					float tempC = sensors->getTempC(tempDeviceAddress);
-					loginfo("Temperature for sub-sensor [%i] : %fc\n", i, tempC);
-					char buf[4];
-					snprintf(buf, 4, "T%i", i);
-					collector.add(buf, tempC);
+					if (sensors->getAddress(tempDeviceAddress, i))
+					{
+						logdebug("requesting getTempC for %i\n", i);
+						float tempC = sensors->getTempC(tempDeviceAddress);
+						loginfo("Temperature for sub-sensor [%i] : %fc\n", i, tempC);
+						char buf[4];
+						snprintf(buf, 4, "T%i", i);
+						collector.add(buf, tempC);
+					}
+				}
+				catch (const std::exception &e)
+				{
+					logerror("error requesting data from DS18b20 : %s\n", e.what());
+				}
+				catch (...)
+				{
+					logerror("unknown error requesting data from DS18b20\n");
 				}
 			}
 		}

@@ -5,6 +5,8 @@
 #include "specialTypes.h"
 #include <WiFi.h>
 #include "../platform_logger.h"
+#include <map>
+#include <vector>
 #include <iterator>
 #include "SanSensNodeV2.h"
 
@@ -13,7 +15,7 @@ namespace SANSENSNODE_NAMESPACE
 
     static char _menuswitch_buff[SANSENSNODE_STRING_BUFFER_SIZE];
     static char _sansensnodeversion[10];
-    static char _mqttpayload[SANSENSNODE_MQTT_RECEIVEMESSAGE_SIZE];
+    static RTC_DATA_ATTR char _mqttpayload[SANSENSNODE_MQTT_RECEIVEMESSAGE_SIZE];
     static uint16_t _mqttpayloadLength = 0;
     static bool _breakCurrentLoop = false;
 
@@ -35,12 +37,12 @@ namespace SANSENSNODE_NAMESPACE
     static RTC_DATA_ATTR uint8_t _EXPmqttattemps;                                                // EXPERIMENTAL : nb de tentatives pour connexion au server mqtt
     static RTC_DATA_ATTR uint8_t _wifiMode = 4;                                                  // WIFI MODE :    0=WIFI_MODE_NULL (no WIFI),1=WIFI_MODE_STA (WiFi station mode),2=WIFI_MODE_AP (WiFi soft-AP mode)
     static RTC_DATA_ATTR uint8_t _loglevel = LOG_LEVEL;                                          // log level : 0=Off, 1=Critical, 2=Error, 3=Warning, 4=Info, 5=Debug
-    static RTC_DATA_ATTR char *_mqttTopicBaseName{nullptr};
+    static RTC_DATA_ATTR char _mqttTopicBaseName[15];
     // 3=WIFI_MODE_APSTA (WiFi station + soft-AP mode) 4=WIFI_MODE_MAX
-    static RTC_DATA_ATTR char *_nodename{nullptr};
-    static RTC_DATA_ATTR char *_ssid{nullptr};
-    static RTC_DATA_ATTR char *_password{nullptr};
-    static RTC_DATA_ATTR char *_mqtt_server{nullptr};
+    static RTC_DATA_ATTR char _nodename[15];
+    static RTC_DATA_ATTR char _ssid[25];
+    static RTC_DATA_ATTR char _password[30];
+    static RTC_DATA_ATTR char _mqtt_server[15];
 
     static RTC_DATA_ATTR bool _verboseMode;
     static RTC_DATA_ATTR bool _menuEnabled = true;
@@ -53,10 +55,12 @@ namespace SANSENSNODE_NAMESPACE
     static std::function<void(SubMenu &)> _setupdevicesCallback;
 
     static std::vector<SensorPlugin *> _sensors;
+    static uint8_t _sensorIndx;
+    static RTC_DATA_ATTR std::map<uint8_t, SensorRemanantMD> _sensorsMap;
 
     const uint16_t _jsonoutbuffersize = 150;
 
-    SanSensNodeV2::SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver,const char* mqtttopicbasename, int G, int Pfactor)
+    SanSensNodeV2::SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver, const char *mqtttopicbasename, int G, int Pfactor)
     {
         if (_firstinit) // première initialisation, ensuite on rentre dans ce constructeur à chaque reveil donc on ne doit pas réinitialiser les variables stockées dnas la RAM de la RTC
         {
@@ -69,19 +73,20 @@ namespace SANSENSNODE_NAMESPACE
             _EXPwifiwait = SANSENSNODE_WIFIWAITTIMEMS;
             _EXPmqttattemps = SANSENSNODE_MQTT_ATTEMPTSNB;
             _verboseMode = false;
-            _nodename = (char *)nodename;
-            _ssid = (char *)ssid;
-            _password = (char *)wifipasswd;
-            _mqtt_server = (char *)mqttserver;
+            strncpy(_nodename, nodename, 15);
+            strncpy(_ssid, ssid, 25);
+            strncpy(_password, wifipasswd, 30);
+            strncpy(_mqtt_server, mqttserver, 15);
+            strncpy(_mqttTopicBaseName, mqtttopicbasename, 15);
             _maxMeasurementAttenmpts = SANSENSNODE_MAX_MEASURES_ATTEMPTS;
             _G_seconds = G;
             _Pfactor = Pfactor;
             _wifitrialsmax = SANSENSNODE_WIFITRIALSINIT;
             _mqttsubscribe = SANSENSNODE_MQTT_SUBSCRIBEATSTART;
-            _mqttTopicBaseName = (char *)mqtttopicbasename;
         }
         _sensors.clear();
         _sensors.reserve(4);
+        _sensorIndx = 0;
 
         loglevel((log_level_e)_loglevel);
         this->mqttClient.setClient(__espClient);
@@ -97,11 +102,25 @@ namespace SANSENSNODE_NAMESPACE
         logflush();
     }
 
-    void SanSensNodeV2::addDevice(SensorPlugin *device)
+    void SanSensNodeV2::addDevice(SensorPlugin *sensor)
     {
-        logdebug("add device [%s], addr:%x\n ", device->getSensorName(), device);
-        _sensors.push_back(device);
-        device->hookSanSensInstance(this);
+        logdebug("add sensor [%s], addr:%x, _sensorIndx=%i, size of persistant sensor-map:%i\n", sensor->getSensorName(), sensor, _sensorIndx, _sensorsMap.size());
+        sensor->idx = _sensorIndx;
+        sensor->hookSanSensInstance(this);
+
+        if (_firstinit)
+        {
+            _sensorsMap.insert(std::pair<uint8_t, SensorRemanantMD>(_sensorIndx, (SensorRemanantMD){true}));
+        }
+        else
+        {
+            // we add the sensor plugin to the connection if only it is enabled.
+            auto findres = _sensorsMap.find(_sensorIndx);
+            sensor->enabled = (findres != _sensorsMap.end() && findres->second.enabled);
+            logdebug("sensor %s enable:%i\n", sensor->getSensorName(), sensor->enabled);
+        }
+        _sensors.push_back(sensor);
+        _sensorIndx++;
     }
 
     void SanSensNodeV2::Setup()
@@ -122,36 +141,52 @@ namespace SANSENSNODE_NAMESPACE
             logflush();
         }
 
-     
         // setup the sensors taken from the collection
 
         for (auto sensor : _sensors)
         {
             if (sensor)
             {
-                // logdebug("EXP %i entering setupdevice on %s\n", i, dev->getDeviceName());
-                logdebug("EXP entering setupdevice on %s\n", sensor->getSensorName());
-                if (_firstinit)
-                    sensor->firstSetup();
-                if (_sensors_menu)
+                try
                 {
-                    SubMenu *sensormenu = _sensors_menu->addSubMenu(sensor->getSensorName());
-                    if (sensormenu)
+                    // logdebug("EXP %i entering setupdevice on %s\n", i, dev->getDeviceName());
+                    logdebug("EXP entering setupdevice on %s\n", sensor->getSensorName());
+                    if (_firstinit)
+                        sensor->firstSetup();
+                    if (_sensors_menu)
                     {
-                        sensormenu->addMenuitemUpdater("enabled", &(sensor->enabled))->addCallback(breakLoop);
-                        sensor->setMenu(*sensormenu);
-                        //menu sensor enbling/disabling
-                        // _sensors_menu->addMenuitem()
-                        //     ->SetDynLabel([&, sensor]() { return sensor->enableMenuFunctionName(); })
-                        //     ->addLambda([&, sensor]() {
-                        //         sensor->enabled = !sensor->enabled;
-                        //         if (sensor->enabled)
-                        //             sensor->setupdevice(*_sensors_menu);
-                        //     });
+                        SubMenu *sensormenu = _sensors_menu->addSubMenu(sensor->getSensorName());
+                        if (sensormenu)
+                        {
+                            if (sensor->enabled)
+                                sensor->setMenu(*sensormenu);
+                            // menu sensor enbling/disabling
+                            sensormenu->addMenuitem()
+                                ->SetDynLabel([&, sensor]() { return sensor->enableMenuFunctionName(); })
+                                ->addLambda([&, sensor]() {
+                                    printf("change enable sensor");
+                                    _sensorsMap.at(sensor->idx).enabled = !_sensorsMap.at(sensor->idx).enabled;
+                                    sensor->enabled = !sensor->enabled;
+                                    // if (sensor->enabled)
+                                    // {
+                                    //     sensor->setMenu(*sensormenu);
+                                    //     sensor->setupsensor();
+                                    // }
+                                });
+                            // sensormenu->addMenuitemUpdater("enabled", &(sensor->enabled))->addCallback(breakLoop);
+                        }
                     }
+                    if (sensor->enabled)
+                        sensor->setupsensor();
                 }
-                if (sensor->enabled)
-                    sensor->setupsensor();
+                catch (const std::exception &e)
+                {
+                    logerror("error in the setup of [%s] plugin : %s\n", sensor->getSensorName(), e.what());
+                }
+                catch (...)
+                {
+                    logerror("unknown error in the setup of [%s] plugin\n", sensor->getSensorName());
+                }
             }
         }
 
@@ -175,6 +210,7 @@ namespace SANSENSNODE_NAMESPACE
     SanSensNodeV2::~SanSensNodeV2()
     {
         printf("~SanSensNodeV2\n");
+        delete _consolemenu;
     }
 
     void SanSensNodeV2::Loop()
@@ -203,6 +239,8 @@ namespace SANSENSNODE_NAMESPACE
             SanSensNodeV2::mqttpubsub(datacoll);
         if (!_breakCurrentLoop)
             waitNextG();
+
+        delete datacoll;
     }
 
     bool SanSensNodeV2::bootAfterSleep()
@@ -314,7 +352,7 @@ private methods
         {
             loginfo("MQTT connection: ");
             // Attempt to connect
-            if (!mqttClient.connect(_nodename))
+            if (!mqttClient.connect((const char *)_nodename))
             {
                 logwarning("failed, rc=%i\n", mqttClient.state());
                 if (++i >= _EXPmqttattemps)
@@ -358,7 +396,7 @@ private methods
         }
 
         std::string intopic(_mqttTopicBaseName);
-        intopic.append(_nodename);
+        intopic.append((const char *)_nodename);
         intopic.append(SANSENSNODE_MQTT_INTOPICSUFFIX);
         if (!mqttClient.subscribe(intopic.c_str(), 1))
         {
@@ -380,8 +418,19 @@ private methods
         {
             if (sensor && sensor->enabled)
             {
-                logdebug("entering collectdata on %s\n", sensor->getSensorName());
-                sensor->collectdata(*dc);
+                try
+                {
+                    logdebug("entering collectdata on %s\n", sensor->getSensorName());
+                    sensor->collectdata(*dc);
+                }
+                catch (const std::exception &e)
+                {
+                    logerror("error collecting data in [%s] plugin : %s\n", sensor->getSensorName(), e.what());
+                }
+                catch (...)
+                {
+                    logerror("unknown error collecting data by [%s] plugin\n", sensor->getSensorName());
+                }
             }
         }
 
@@ -414,7 +463,7 @@ private methods
                 dc->add("SensorIssue", true);
 
             std::string outopic(_mqttTopicBaseName);
-            outopic.append(_nodename);
+            outopic.append((const char *)_nodename);
             outopic.append(SANSENSNODE_MQTT_OUTTOPICSUFFIX);
             logdebug("publish on %s\n", outopic.c_str());
 
@@ -454,12 +503,16 @@ private methods
 
     void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
     {
-        for (int i = 0; i < length; i++)
+        if (strncmp(_mqttpayload, (char *)payload, length) != 0)
         {
-            _mqttpayload[i] = (char)payload[i];
+            //if the incomming MQTT message differ from the last one, otherwise, we do nothing.
+            for (int i = 0; i < length; i++)
+            {
+                _mqttpayload[i] = (char)payload[i];
+            }
+            _mqttpayload[length] = '\0';
+            _mqttpayloadLength = length;
         }
-        _mqttpayload[length] = '\0';
-        _mqttpayloadLength = length;
     }
 
     bool SanSensNodeV2::Setup_wifi()
@@ -488,7 +541,7 @@ private methods
         loginfo("WiFi connected, IP address:%s", WiFi.localIP().toString().c_str());
         logflush();
 
-        mqttClient.setServer(_mqtt_server, SANSENSNODE_MQTT_PORT);
+        mqttClient.setServer((const char *)_mqtt_server, SANSENSNODE_MQTT_PORT);
         mqttClient.setCallback(mqttCallback);
 
         return true;
@@ -545,17 +598,17 @@ private methods
         // infos_menu->addMenuitem()->SetLabel("RT infos")->addLambda([_consolemenu]() { rtInfos(_consolemenu); });
         // infos_menu->addMenuitemCallback("RT infos", rtInfos);
         infos_menu->addMenuitemUpdater("Log level (0=off->5=debug)", &_loglevel)->addLambda([]() { loglevel((log_level_e)_loglevel); });
-        network_menu->addMenuitemUpdater("node name", _nodename, 20);
-        network_menu->addMenuitemUpdater("wifi ssid", _ssid, 30);
-        network_menu->addMenuitemUpdater("wifi password", _password, 30);
-        network_menu->addMenuitemUpdater("mqtt server", _mqtt_server, 15);
-        network_menu->addMenuitemUpdater("mqtt topic base", _mqttTopicBaseName, 15);
+        network_menu->addMenuitemUpdater("node name", (char *)_nodename, 15);
+        network_menu->addMenuitemUpdater("wifi ssid", (char *)_ssid, 25);
+        network_menu->addMenuitemUpdater("wifi password", (char *)_password, 30);
+        network_menu->addMenuitemUpdater("mqtt server", (char *)_mqtt_server, 15);
+        network_menu->addMenuitemUpdater("mqtt topic base", (char *)_mqttTopicBaseName, 15);
     }
 
     bool SanSensNodeV2::collectMeasurement_internal(JsonColl &dc)
     {
         //collect data and fill _datacollector with it
-        dc.add("device", _nodename);
+        dc.add("device", (const char *)_nodename);
         dc.add("Gi", _Gi);
         dc.add("Pi", _Pi);
         double timeSinceStartup = esp_timer_get_time() / 1000000;
@@ -574,7 +627,7 @@ private methods
     {
         if (_mqttpayloadLength == 0)
         {
-            logdebug("no mqtt message received\n");
+            logdebug("no new mqtt message received\n");
             logflush();
             return;
         }
@@ -609,13 +662,28 @@ private methods
         {
             logdebug("P:%i x G(=%is)\n", _Pfactor, _G_seconds);
         }
+        if (pyldic.tryGetValue("verbose", _verboseMode))
+        {
+            logdebug("verbose:%i\n", _verboseMode);
+        }
 
         for (auto sensor : _sensors)
         {
             if (sensor && sensor->enabled)
             {
-                logdebug("onInputMessage on %s\n", sensor->getSensorName());
-                sensor->onInputMessage(pyldic);
+                try
+                {
+                    logdebug("onInputMessage on %s\n", sensor->getSensorName());
+                    sensor->onInputMessage(pyldic);
+                }
+                catch (const std::exception &e)
+                {
+                    logerror("error processing incoming message in [%s] plugin : %s\n", sensor->getSensorName(), e.what());
+                }
+                catch (...)
+                {
+                    logerror("unknown error processing data by [%s] plugin\n", sensor->getSensorName());
+                }
             }
         }
 

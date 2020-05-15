@@ -4,11 +4,20 @@
 #include "specialTypes.h"
 #include <consoleMenu.h>
 
-
 namespace SANSENSNODE_NAMESPACE
 {
 
     class SanSensNodeV2;
+
+    /**
+ * @brief : struc to hold sensors metadata inthe remanant RAM (minimal data to hold during the deep sleep) 
+ * 
+ */
+    struct SensorRemanantMD
+    {
+        bool enabled : 1;
+    };
+
     /**
      * @brief base class for devices plugins
      * 
@@ -16,7 +25,6 @@ namespace SANSENSNODE_NAMESPACE
     class SensorPlugin
     {
     private:
-
     protected:
         std::string _sensorname{"XXsensor"};
         SanSensNodeV2 *_sansens_instance;
@@ -25,6 +33,9 @@ namespace SANSENSNODE_NAMESPACE
     public:
         SensorPlugin(const char *devicename);
         virtual ~SensorPlugin();
+
+        uint8_t idx;
+        bool enabled;
 
         virtual bool collectdata(JsonColl &collector);
 
@@ -39,8 +50,7 @@ namespace SANSENSNODE_NAMESPACE
         virtual void onInputMessage(flyingCollection::SanCodedStr &data);
         virtual const char *getSensorName();
         void hookSanSensInstance(SanSensNodeV2 *instance);
-        virtual SanSensNodeV2* getSanSensInstance();
-        bool enabled;
+        virtual SanSensNodeV2 *getSanSensInstance();
         const char *enableMenuFunctionName();
         SubMenu *GetMenu();
     };
