@@ -14,7 +14,7 @@ const uint8_t oneWireBus = 5;
 #define P_FACTOR 1
 #define SANSENSNODE_SKETCHVERSION 0341
 
-#define LOG_ECHO_EN_DEFAULT true
+#define LOG_ECHO_EN_DEFAULT 1
 
 #undef MQTT_MAX_PACKET_SIZE      // un-define max packet size
 #define MQTT_MAX_PACKET_SIZE 250 // fix for MQTT client dropping messages over 128B

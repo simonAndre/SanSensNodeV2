@@ -2,9 +2,8 @@
 #include <Arduino.h>
 namespace SANSENSNODE_NAMESPACE
 {
-	DS18B20::DS18B20(uint8_t oneWireBus) : SensorPlugin("DS18B20")
+	DS18B20::DS18B20(uint8_t oneWireBus) : SensorPlugin("DS18B20"), _oneWireBus(oneWireBus)
 	{
-		this->_oneWireBus = oneWireBus;
 	}
 
 	DS18B20::~DS18B20()
@@ -14,10 +13,15 @@ namespace SANSENSNODE_NAMESPACE
 	void DS18B20::firstSetup()
 	{
 	}
-
-	void DS18B20::setupdevice(SubMenu &device_menu)
+	void DS18B20::setMenu(SubMenu &sensor_menu)
 	{
-		logdebug("enter setup DS18B20\n");
+		SensorPlugin::setMenu(sensor_menu);
+		//hook up additional menu entries
+	}
+
+	void DS18B20::setupsensor()
+	{
+		logdebug("enter setup DS18B20, bus on PIN%i\n", _oneWireBus);
 		// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 		OneWire oneWire(_oneWireBus);
 		// Pass our oneWire reference to Dallas Temperature.

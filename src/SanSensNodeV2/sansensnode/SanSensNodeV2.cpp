@@ -52,6 +52,9 @@ namespace SANSENSNODE_NAMESPACE
     static std::function<bool(JsonColl &)> _collectdataCallback;
     static std::function<void(SubMenu &)> _setupdevicesCallback;
 
+    static SensorPlugin *_sensorsarr[SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE];
+    static uint8_t _sensoridx;
+
     const uint16_t _jsonoutbuffersize = 150;
 
     SanSensNodeV2::SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver, int G, int Pfactor)
@@ -80,7 +83,7 @@ namespace SANSENSNODE_NAMESPACE
         }
         // _devices.clear();
         // _devices.reserve(4);
-        this->_sensoridx = 0;
+        _sensoridx = 0;
         _sensorsarr[SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE];
         loglevel((log_level_e)_loglevel);
         this->mqttClient.setClient(__espClient);
@@ -98,7 +101,7 @@ namespace SANSENSNODE_NAMESPACE
 
     void SanSensNodeV2::addDevice(SensorPlugin *device)
     {
-        printf("_deviceidx=%i\n ", _sensoridx);
+        logdebug("_deviceidx=%i\n ", _sensoridx);
         logdebug("add device [%s], addr:%x, _deviceidx=%i\n ", device->getSensorName(), device, _sensoridx);
         // _devices.push_back(device);
         _sensorsarr[_sensoridx++] = device;
@@ -116,17 +119,11 @@ namespace SANSENSNODE_NAMESPACE
         // {
         for (size_t i = 0; i < _sensoridx; i++)
         {
-            SensorPlugin *dev = _sensorsarr[i];
+            SensorPlugin *sensor = _sensorsarr[i];
             logdebug("iter %i\n", i);
-            // DevicePlugin *dev = *device_iter;
-            // for (size_t i = 0; i < _deviceidx; i++)
-            // {
-            //     auto dev = _devicesarr[i];
-            //     logdebug("iter %i\n", i);
-
-            if (dev)
+            if (sensor)
             {
-                logdebug("adress : %x, sensor name: %s\n", dev, dev->getSensorName());
+                logdebug("adress : %x, sensor name: %s\n", sensor, sensor->getSensorName());
             }
         }
         logdebug("END test stage");
@@ -146,51 +143,6 @@ namespace SANSENSNODE_NAMESPACE
             logflush();
         }
 
-        // setup the devices taken from the collection
-        //     for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
-        //     {
-        //         DevicePlugin *dev = *device_iter;
-        for (size_t i = 0; i < _sensoridx; i++)
-        {
-            SensorPlugin *dev = _sensorsarr[i];
-            if (dev)
-            {
-                // logdebug("EXP %i entering setupdevice on %s\n", i, dev->getDeviceName());
-                logdebug("EXP entering setupdevice on %s\n", dev->getSensorName());
-                if (_firstinit)
-                    dev->firstSetup();
-                if (_device_menu)
-                {
-                    //menu device enbling/disabling
-                    // _device_menu->addMenuitem()
-                    //     ->SetDynLabel([&, dev]() { return dev->enableMenuFunctionName(); })
-                    //     ->addLambda([&, dev]() {
-                    //         dev->enabled = !dev->enabled;
-                    //         if (dev->enabled)
-                    //             dev->setupdevice(*_device_menu);
-                    //     });
-                    std::string menulabel("switch ");
-                    menulabel.append(dev->getSensorName());
-                    _device_menu->addMenuitemUpdater(menulabel.c_str(), &(dev->enabled))
-                        ->addLambda([&, dev]() {
-                            logdebug("EXP _device_menu lambda %i\n", dev->enabled);
-                            if (dev->enabled)
-                                dev->setupdevice(*_device_menu);
-                        });
-
-                    if (dev->enabled)
-                        //setup other device menus
-                        dev->setupdevice(*_device_menu);
-                }
-            }
-        }
-
-        logdebug("entering _setupdevicesCallback\n");
-        if (_setupdevicesCallback)
-            _setupdevicesCallback(*_device_menu);
-
-        logdebug("end iter setups devices\n");
-
         if (_firstinit || (_deepsleep && (_deepsleep->getWakeup_reason() == ESP_SLEEP_WAKEUP_TOUCHPAD)))
         {
             //conditions for prompting menu at start (but with a small timeout to save battery in case of unwanted awake)
@@ -201,6 +153,45 @@ namespace SANSENSNODE_NAMESPACE
             printf("input anything to show the menu. Expire in %i seconds", SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU);
             waitListeningIOevents(SANSENSNODE_FIRSTBOOTDELAYWAITINGMENU * 1000);
         }
+
+        // setup the sensors taken from the collection
+
+        for (size_t i = 0; i < _sensoridx; i++)
+        {
+            SensorPlugin *sensor = _sensorsarr[i];
+            if (sensor)
+            {
+                // logdebug("EXP %i entering setupdevice on %s\n", i, dev->getDeviceName());
+                logdebug("EXP entering setupdevice on %s\n", sensor->getSensorName());
+                if (_firstinit)
+                    sensor->firstSetup();
+                if (_sensors_menu)
+                {
+                    SubMenu *sensormenu = _sensors_menu->addSubMenu(sensor->getSensorName());
+                    if (sensormenu)
+                    {
+                        sensormenu->addMenuitemUpdater("enabled", &(sensor->enabled))->addCallback(breakLoop);
+                        sensor->setMenu(*sensormenu);
+                        //menu sensor enbling/disabling
+                        // _sensors_menu->addMenuitem()
+                        //     ->SetDynLabel([&, sensor]() { return sensor->enableMenuFunctionName(); })
+                        //     ->addLambda([&, sensor]() {
+                        //         sensor->enabled = !sensor->enabled;
+                        //         if (sensor->enabled)
+                        //             sensor->setupdevice(*_sensors_menu);
+                        //     });
+                    }
+                }
+                if (sensor->enabled)
+                    sensor->setupsensor();
+            }
+        }
+
+        logdebug("entering _setupdevicesCallback\n");
+        if (_setupdevicesCallback)
+            _setupdevicesCallback(*_sensors_menu);
+
+        logdebug("end iter setups devices\n");
 
         if (_firstinit)
             _firstinit = false;
@@ -339,9 +330,9 @@ namespace SANSENSNODE_NAMESPACE
         return _sansensnodeversion;
     }
 
-    SubMenu *SanSensNodeV2::getDeviceMenu()
+    SubMenu *SanSensNodeV2::getSensorsMenu()
     {
-        return this->_device_menu;
+        return this->_sensors_menu;
     }
 
     /*
@@ -418,16 +409,13 @@ private methods
         if (dc && !collectMeasurement_internal(*dc))
             return false;
 
-        // for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
-        // {
-        //     DevicePlugin *mydevice = *device_iter;
         for (size_t i = 0; i < _sensoridx; i++)
         {
-            SensorPlugin *dev = _sensorsarr[i];
-            if (dev && dev->enabled)
+            SensorPlugin *sensor = _sensorsarr[i];
+            if (sensor && sensor->enabled)
             {
-                printf("EXP entering collectdata on %s\n", dev->getSensorName());
-                dev->collectdata(*dc);
+                printf("EXP entering collectdata on %s\n", sensor->getSensorName());
+                sensor->collectdata(*dc);
             }
         }
 
@@ -499,6 +487,16 @@ private methods
         return true;
     }
 
+    void mqttCallback(char *topic, uint8_t *payload, unsigned int length)
+    {
+        for (int i = 0; i < length; i++)
+        {
+            _mqttpayload[i] = (char)payload[i];
+        }
+        _mqttpayload[length] = '\0';
+        _mqttpayloadLength = length;
+    }
+
     bool SanSensNodeV2::Setup_wifi()
     {
         delay(10);
@@ -539,7 +537,7 @@ private methods
 
     void SanSensNodeV2::setupSerialMenu()
     {
-        _consolemenu = new Menu<33 + SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE>(); // menu-entries in this class ( 2 more in the sketch) (todo : to template)
+        _consolemenu = new Menu<38 + SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE>(); // menu-entries in this class ( 2 more in the sketch) (todo : to template)
         //define options
         MenuOptions menuoptions;
         menuoptions.addBack = true;
@@ -550,7 +548,8 @@ private methods
         // root menus
 
         SubMenu *root = _consolemenu->getRootMenu();
-        _device_menu = root->addSubMenu("device");
+        SubMenu *device_menu = root->addSubMenu("device");
+        _sensors_menu = root->addSubMenu("sensors");
         SubMenu *measure_menu = root->addSubMenu("measure")->addCallbackToChilds(breakLoop);
         SubMenu *publication_menu = root->addSubMenu("publication")->addCallbackToChilds(breakLoop);
         SubMenu *network_menu = root->addSubMenu("network")->addCallbackToChilds(breakLoop);
@@ -570,7 +569,9 @@ private methods
         publication_menu->addMenuitemUpdater("wifiattemps", &_EXPmqttattemps);
         publication_menu->addMenuitemUpdater("wifi mode (1 to 4)", &_wifiMode);
 
-        SubMenu *smfreq = _device_menu->addSubMenu("set CPU freq")->addCallbackToChilds(SetEnergyMode)->addCallbackToChilds(breakLoop);
+        device_menu->addMenuitemUpdater("control menu", &_menuEnabled);
+
+        SubMenu *smfreq = device_menu->addSubMenu("set CPU freq")->addCallbackToChilds(SetEnergyMode)->addCallbackToChilds(breakLoop);
         smfreq->addMenuitem()->SetLabel("80 Mhz")->addLambda([]() { _cpuFreq = 80; });
         smfreq->addMenuitem()->SetLabel("160 Mhz")->addLambda([]() { _cpuFreq = 160; });
         smfreq->addMenuitem()->SetLabel("240 Mhz")->addLambda([]() { _cpuFreq = 240; });
@@ -580,7 +581,6 @@ private methods
         // infos_menu->addMenuitem()->SetLabel("RT infos")->addLambda([_consolemenu]() { rtInfos(_consolemenu); });
         // infos_menu->addMenuitemCallback("RT infos", rtInfos);
         infos_menu->addMenuitemUpdater("Log level (0=off->5=debug)", &_loglevel)->addLambda([]() { loglevel((log_level_e)_loglevel); });
-        infos_menu->addMenuitemUpdater("control menu", &_menuEnabled);
         network_menu->addMenuitemUpdater("node name", _nodename, 20);
         network_menu->addMenuitemUpdater("wifi ssid", _ssid, 30);
         network_menu->addMenuitemUpdater("wifi password", _password, 30);
@@ -610,17 +610,7 @@ private methods
         return true;
     }
 
-    bool SanSensNodeV2::mqttCallback(char *topic, uint8_t *payload, unsigned int length)
-    {
-        for (int i = 0; i < length; i++)
-        {
-            _mqttpayload[i] = (char)payload[i];
-        }
-        _mqttpayload[length] = '\0';
-        _mqttpayloadLength = length;
-        return true;
-    }
-
+    
     void SanSensNodeV2::HandleMqttReceive()
     {
         if (_mqttpayloadLength == 0)
@@ -661,17 +651,13 @@ private methods
             logdebug("P:%i x G(=%is)\n", _Pfactor, _G_seconds);
         }
 
-        // for (auto device_iter = _devices.begin(); device_iter != _devices.end(); ++device_iter)
-        // {
-        //     DevicePlugin *dev = *device_iter;
-
         for (size_t i = 0; i < _sensoridx; i++)
         {
-            SensorPlugin *dev = _sensorsarr[i];
-            if (dev && dev->enabled)
+            SensorPlugin *sensor = _sensorsarr[i];
+            if (sensor && sensor->enabled)
             {
-                printf("EXP onInputMessage on %s\n", dev->getSensorName());
-                dev->onInputMessage(pyldic);
+                printf("EXP onInputMessage on %s\n", sensor->getSensorName());
+                sensor->onInputMessage(pyldic);
             }
         }
 

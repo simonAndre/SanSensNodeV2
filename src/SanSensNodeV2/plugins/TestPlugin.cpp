@@ -28,16 +28,20 @@ namespace SANSENSNODE_NAMESPACE
 	{
 	}
 
-
-	void TestPlugin::setupdevice(SubMenu &device_menu)
+	void TestPlugin::setMenu(SubMenu &sensor_menu)
+	{
+		SensorPlugin::setMenu(sensor_menu);
+		//hook up additional menu entries
+		sensor_menu.addMenuitem()->SetLabel("switch led 1")->addLambda([&]() { led1On(); });
+		sensor_menu.addMenuitem()->SetLabel("switch led 2")->addLambda([&]() { led2On(); });
+	}
+	
+	void TestPlugin::setupsensor()
 	{
 		logdebug("enter setupdevice TestPlugin\n");
 		pinMode(LED1PIN, OUTPUT); // Initialize the LED2PIN pin as an output
 		pinMode(LED2PIN, OUTPUT); // Initialize the LED2PIN pin as an output
 
-		//hook up additional menu entries
-		device_menu.addMenuitem()->SetLabel("switch led 1")->addLambda([&]() { led1On(); });
-		device_menu.addMenuitem()->SetLabel("switch led 2")->addLambda([&]() { led2On(); });
 		logdebug("setupdevice TestPlugin done\n");
 	}
 

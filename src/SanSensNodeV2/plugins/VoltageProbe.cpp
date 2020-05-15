@@ -33,10 +33,16 @@ namespace SANSENSNODE_NAMESPACE
 		logdebug("firstSetup VoltageProbe\n");
 	}
 
-	void VoltageProbe::setupdevice(SubMenu &device_menu)
+	void VoltageProbe::setMenu(SubMenu &sensor_menu)
+	{
+		SensorPlugin::setMenu(sensor_menu);
+		//hook up additional menu entries
+	}
+
+	void VoltageProbe::setupsensor()
 	{
 		logdebug("setupdevice VoltageProbe done\n");
-		}
+	}
 
 	bool VoltageProbe::collectdata(JsonColl &collector)
 	{

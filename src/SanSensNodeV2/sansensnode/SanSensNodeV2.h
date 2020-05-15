@@ -6,7 +6,7 @@ tested on ESP32
 #pragma once
 // #include <Arduino.h>
 #include "DeepSleep.h"
-#include "DevicePlugin.h"
+#include "SensorPlugin.h"
 #include <functional>
 #include <PubSubClient.h>
 #include <vector>
@@ -95,7 +95,7 @@ namespace SANSENSNODE_NAMESPACE
 
         static char *getVersion();
 
-        SubMenu *getDeviceMenu();
+        SubMenu *getSensorsMenu();
 
         bool isFirstInit();
 
@@ -105,16 +105,13 @@ namespace SANSENSNODE_NAMESPACE
         bool initStringValue(const char *menuname);
         bool DisplayStringValue(const char *menuname);
         Menubase *_consolemenu;
-        SubMenu *_device_menu;
+        SubMenu *_sensors_menu;
         SANSENSNODE_NAMESPACE::DeepSleep *_deepsleep;
         uint8_t _measurementAttenmpts;
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
 
         // std::vector<DevicePlugin *> _devices;
-        SensorPlugin *_sensorsarr[SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE];
-
-        uint8_t _sensoridx;
-
+    
         bool mqttConnect();
 
         //allow the client to process incoming messages and maintain its connection to the server.
@@ -140,8 +137,6 @@ namespace SANSENSNODE_NAMESPACE
         void setupSerialMenu();
 
         bool collectMeasurement_internal(JsonColl &dc);
-
-        static bool mqttCallback(char *topic, uint8_t *payload, unsigned int length);
 
         void HandleMqttReceive();
 

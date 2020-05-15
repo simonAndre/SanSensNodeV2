@@ -1,7 +1,7 @@
 #include "../Configuration.h"
 #include "../Namespace.h"
 #include "../platform_logger.h"
-#include "DevicePlugin.h"
+#include "SensorPlugin.h"
 #include <Arduino.h>
 
 namespace SANSENSNODE_NAMESPACE
@@ -33,10 +33,12 @@ namespace SANSENSNODE_NAMESPACE
     }
 
    
-
-    void SensorPlugin::setupdevice(SubMenu &device_menu)
+    void SensorPlugin::setupsensor()
     {
      
+    }
+    void SensorPlugin::setMenu(SubMenu &sensor_menu) {
+        _sensor_menu=&sensor_menu;
     }
 
     void SensorPlugin::onInputMessage(flyingCollection::SanCodedStr &data) {}
@@ -54,6 +56,10 @@ namespace SANSENSNODE_NAMESPACE
     SanSensNodeV2 *SensorPlugin::getSanSensInstance()
     {
         return _sansens_instance;
+    }
+
+    SubMenu *SensorPlugin::GetMenu(){
+        return _sensor_menu;
     }
 
 } // namespace SANSENSNODE_NAMESPACE

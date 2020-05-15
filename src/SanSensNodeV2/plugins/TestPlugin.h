@@ -15,7 +15,8 @@ namespace SANSENSNODE_NAMESPACE
         virtual ~TestPlugin();
         virtual bool collectdata(JsonColl &collector) override;
         virtual void firstSetup() override;
-        virtual void setupdevice(SubMenu &device_menu) override;
+        virtual void setupsensor() override;
+        virtual void setMenu(SubMenu &sensor_menu);
         virtual void onInputMessage(flyingCollection::SanCodedStr &data) override;
     };
 } // namespace SANSENSNODE_NAMESPACE
