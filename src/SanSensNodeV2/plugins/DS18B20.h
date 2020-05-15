@@ -4,7 +4,7 @@
 #include <SanSensNodeV2.h>
 namespace SANSENSNODE_NAMESPACE
 {
-    class DS18B20 : public DevicePlugin
+    class DS18B20 : public SensorPlugin
     {
     private:
         uint8_t _oneWireBus;

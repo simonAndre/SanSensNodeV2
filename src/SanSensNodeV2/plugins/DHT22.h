@@ -5,7 +5,7 @@
 #define DHT_WAITTIMEMS 0
 namespace SANSENSNODE_NAMESPACE
 {
-    class DHT22 : public DevicePlugin
+    class DHT22 : public SensorPlugin
     {
     private:
         uint8_t _dhtpin;

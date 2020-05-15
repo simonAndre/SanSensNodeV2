@@ -51,12 +51,10 @@ public:
 
 	void flush() noexcept final
 	{
-#ifndef INSTANTLOGGING
 		while (!log_buffer_.empty())
 		{
 			_putchar(log_buffer_.pop_front());
 		}
-#endif
 	}
 
 	void clear() noexcept final
@@ -79,11 +77,7 @@ public:
 protected:
 	void log_putc(char c) noexcept final
 	{
-#ifdef INSTANTLOGGING
-		Serial.print(c);
-#else
 		log_buffer_.push_back(c);
-#endif
 	}
 
 private:

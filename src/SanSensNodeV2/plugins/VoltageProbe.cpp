@@ -1,7 +1,7 @@
 #include "VoltageProbe.h"
 namespace SANSENSNODE_NAMESPACE
 {
-	VoltageProbe::VoltageProbe() : DevicePlugin("VoltageProbe") {}
+	VoltageProbe::VoltageProbe() : SensorPlugin("VoltageProbe") {}
 	VoltageProbe::~VoltageProbe() {}
 
 	double VoltageProbe::ReadVoltage()

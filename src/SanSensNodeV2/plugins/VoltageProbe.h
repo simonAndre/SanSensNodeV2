@@ -6,7 +6,7 @@
 
 namespace SANSENSNODE_NAMESPACE
 {
-    class VoltageProbe : public DevicePlugin
+    class VoltageProbe : public SensorPlugin
     {
     private:
         const uint8_t nb_readings = 20;

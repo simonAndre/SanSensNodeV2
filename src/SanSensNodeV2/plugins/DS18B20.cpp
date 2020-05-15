@@ -2,7 +2,7 @@
 #include <Arduino.h>
 namespace SANSENSNODE_NAMESPACE
 {
-	DS18B20::DS18B20(uint8_t oneWireBus) : DevicePlugin("DS18B20")
+	DS18B20::DS18B20(uint8_t oneWireBus) : SensorPlugin("DS18B20")
 	{
 		this->_oneWireBus = oneWireBus;
 	}
@@ -17,7 +17,7 @@ namespace SANSENSNODE_NAMESPACE
 
 	void DS18B20::setupdevice(SubMenu &device_menu)
 	{
-		Serial.print("enter setup DS18B20");
+		logdebug("enter setup DS18B20\n");
 		// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 		OneWire oneWire(_oneWireBus);
 		// Pass our oneWire reference to Dallas Temperature.
@@ -29,10 +29,7 @@ namespace SANSENSNODE_NAMESPACE
 		numberOfDevices = sensors->getDeviceCount();
 
 		// locate devices on the bus
-		Serial.print("Locating devices...");
-		Serial.print("Found ");
-		Serial.print(numberOfDevices, DEC);
-		Serial.println(" devices.");
+		logdebug("Locating devices, found %i devices\n", numberOfDevices);
 
 		// Loop through each device, print out address
 		for (int i = 0; i < numberOfDevices; i++)
@@ -40,17 +37,13 @@ namespace SANSENSNODE_NAMESPACE
 			// Search the wire for address
 			if (sensors->getAddress(tempDeviceAddress, i))
 			{
-				Serial.print("Found device ");
-				Serial.print(i, DEC);
-				Serial.print(" with address: ");
+				loginfo("Found device %i with address:\n",i);
 				printAddress(tempDeviceAddress);
-				Serial.println();
+				printf("\n");
 			}
 			else
 			{
-				Serial.print("Found ghost device at ");
-				Serial.print(i, DEC);
-				Serial.print(" but could not detect address. Check power and cabling");
+				logdebug("Found ghost device at %i but could not detect address. Check power and cabling\n", i);
 			}
 		}
 		logdebug("setupdevice DS18B20 done\n");
@@ -72,13 +65,8 @@ namespace SANSENSNODE_NAMESPACE
 				// Search the wire for address
 				if (sensors->getAddress(tempDeviceAddress, i))
 				{
-					// Output the device ID
-					Serial.print("Temperature for device: ");
-					Serial.println(i, DEC);
-					// Print the data
 					float tempC = sensors->getTempC(tempDeviceAddress);
-					Serial.print("Temp C: ");
-					Serial.print(tempC);
+					loginfo("Temperature for device [%i] : %fc\n", i, tempC);
 					char buf[3];
 					snprintf(buf, 3, "T%i", i);
 					collector.add(buf, tempC);

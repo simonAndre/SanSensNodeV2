@@ -4,7 +4,7 @@
 namespace SANSENSNODE_NAMESPACE
 {
 
-	TestPlugin::TestPlugin() : DevicePlugin("TestPlugin") {}
+	TestPlugin::TestPlugin() : SensorPlugin("TestPlugin") {}
 	TestPlugin::~TestPlugin() {}
 
 	bool TestPlugin::led1On()
@@ -31,14 +31,14 @@ namespace SANSENSNODE_NAMESPACE
 
 	void TestPlugin::setupdevice(SubMenu &device_menu)
 	{
-		Serial.println("enter setupdevice TestPlugin\n");
+		logdebug("enter setupdevice TestPlugin\n");
 		pinMode(LED1PIN, OUTPUT); // Initialize the LED2PIN pin as an output
 		pinMode(LED2PIN, OUTPUT); // Initialize the LED2PIN pin as an output
 
 		//hook up additional menu entries
 		device_menu.addMenuitem()->SetLabel("switch led 1")->addLambda([&]() { led1On(); });
 		device_menu.addMenuitem()->SetLabel("switch led 2")->addLambda([&]() { led2On(); });
-		Serial.println("setupdevice TestPlugin done\n");
+		logdebug("setupdevice TestPlugin done\n");
 	}
 
 	bool TestPlugin::collectdata(JsonColl &collector)

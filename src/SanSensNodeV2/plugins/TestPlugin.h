@@ -4,7 +4,7 @@
 #define LED2PIN 17
 namespace SANSENSNODE_NAMESPACE
 {
-    class TestPlugin : public DevicePlugin
+    class TestPlugin : public SensorPlugin
     {
     private:
         bool led1On();

@@ -92,14 +92,14 @@ namespace SANSENSNODE_NAMESPACE
             delay(SANSENSNODE_WAITFORSERIALDELAY); // pour attendre port serie
             Serial.begin(115200);
         }
-        logdebug("end SanSensNodeV2 ctor\n");
+        logdebug("end SanSensNodeV2 ctor,_bootCount=%i, _sensoridx=%i\n", _bootCount, _sensoridx);
         logflush();
     }
 
-    void SanSensNodeV2::addDevice(DevicePlugin *device)
+    void SanSensNodeV2::addDevice(SensorPlugin *device)
     {
         printf("_deviceidx=%i\n ", _sensoridx);
-        logdebug("add device [%s], addr:%x, _deviceidx=%i\n ", device->getDeviceName(), device, _sensoridx);
+        logdebug("add device [%s], addr:%x, _deviceidx=%i\n ", device->getSensorName(), device, _sensoridx);
         // _devices.push_back(device);
         _sensorsarr[_sensoridx++] = device;
         device->hookSanSensInstance(this);
@@ -116,7 +116,7 @@ namespace SANSENSNODE_NAMESPACE
         // {
         for (size_t i = 0; i < _sensoridx; i++)
         {
-            DevicePlugin *dev = _sensorsarr[i];
+            SensorPlugin *dev = _sensorsarr[i];
             logdebug("iter %i\n", i);
             // DevicePlugin *dev = *device_iter;
             // for (size_t i = 0; i < _deviceidx; i++)
@@ -126,7 +126,7 @@ namespace SANSENSNODE_NAMESPACE
 
             if (dev)
             {
-                logdebug(" adress : %x, device name: %s\n", dev->getDeviceName(), dev);
+                logdebug("adress : %x, sensor name: %s\n", dev, dev->getSensorName());
             }
         }
         logdebug("END test stage");
@@ -152,11 +152,11 @@ namespace SANSENSNODE_NAMESPACE
         //         DevicePlugin *dev = *device_iter;
         for (size_t i = 0; i < _sensoridx; i++)
         {
-            DevicePlugin *dev = _sensorsarr[i];
+            SensorPlugin *dev = _sensorsarr[i];
             if (dev)
             {
                 // logdebug("EXP %i entering setupdevice on %s\n", i, dev->getDeviceName());
-                logdebug("EXP entering setupdevice on %s\n", dev->getDeviceName());
+                logdebug("EXP entering setupdevice on %s\n", dev->getSensorName());
                 if (_firstinit)
                     dev->firstSetup();
                 if (_device_menu)
@@ -170,7 +170,7 @@ namespace SANSENSNODE_NAMESPACE
                     //             dev->setupdevice(*_device_menu);
                     //     });
                     std::string menulabel("switch ");
-                    menulabel.append(dev->getDeviceName());
+                    menulabel.append(dev->getSensorName());
                     _device_menu->addMenuitemUpdater(menulabel.c_str(), &(dev->enabled))
                         ->addLambda([&, dev]() {
                             logdebug("EXP _device_menu lambda %i\n", dev->enabled);
@@ -423,10 +423,10 @@ private methods
         //     DevicePlugin *mydevice = *device_iter;
         for (size_t i = 0; i < _sensoridx; i++)
         {
-            DevicePlugin *dev = _sensorsarr[i];
+            SensorPlugin *dev = _sensorsarr[i];
             if (dev && dev->enabled)
             {
-                printf("EXP entering collectdata on %s\n", dev->getDeviceName());
+                printf("EXP entering collectdata on %s\n", dev->getSensorName());
                 dev->collectdata(*dc);
             }
         }
@@ -667,10 +667,10 @@ private methods
 
         for (size_t i = 0; i < _sensoridx; i++)
         {
-            DevicePlugin *dev = _sensorsarr[i];
+            SensorPlugin *dev = _sensorsarr[i];
             if (dev && dev->enabled)
             {
-                printf("EXP onInputMessage on %s\n", dev->getDeviceName());
+                printf("EXP onInputMessage on %s\n", dev->getSensorName());
                 dev->onInputMessage(pyldic);
             }
         }

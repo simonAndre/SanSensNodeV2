@@ -7,24 +7,24 @@
 namespace SANSENSNODE_NAMESPACE
 {
 
-    DevicePlugin::DevicePlugin(const char *devicename) : _devicename(std::string(devicename))
+    SensorPlugin::SensorPlugin(const char *devicename) : _sensorname(std::string(devicename))
     {
     }
 
-    DevicePlugin::~DevicePlugin() {}
+    SensorPlugin::~SensorPlugin() {}
 
-    bool DevicePlugin::collectdata(JsonColl &collector)
+    bool SensorPlugin::collectdata(JsonColl &collector)
     {
         throw std::runtime_error(SANSENSNODE_NOTIMPL);
     }
-    void DevicePlugin::firstSetup()
+    void SensorPlugin::firstSetup()
     {
         enabled = true;
     }
 
-    const char *DevicePlugin::enableMenuFunctionName()
+    const char *SensorPlugin::enableMenuFunctionName()
     {
-        std::string outstr(_devicename.c_str());
+        std::string outstr(_sensorname.c_str());
         if (enabled)
             outstr.insert(0, "disable ");
         else
@@ -34,24 +34,24 @@ namespace SANSENSNODE_NAMESPACE
 
    
 
-    void DevicePlugin::setupdevice(SubMenu &device_menu)
+    void SensorPlugin::setupdevice(SubMenu &device_menu)
     {
      
     }
 
-    void DevicePlugin::onInputMessage(flyingCollection::SanCodedStr &data) {}
+    void SensorPlugin::onInputMessage(flyingCollection::SanCodedStr &data) {}
 
-    inline const char *DevicePlugin::getDeviceName()
+    inline const char *SensorPlugin::getSensorName()
     {
-        return _devicename.c_str();
+        return _sensorname.c_str();
     }
 
-    void DevicePlugin::hookSanSensInstance(SanSensNodeV2 *instance)
+    void SensorPlugin::hookSanSensInstance(SanSensNodeV2 *instance)
     {
         _sansens_instance = instance;
     }
 
-    SanSensNodeV2 *DevicePlugin::getSanSensInstance()
+    SanSensNodeV2 *SensorPlugin::getSanSensInstance()
     {
         return _sansens_instance;
     }

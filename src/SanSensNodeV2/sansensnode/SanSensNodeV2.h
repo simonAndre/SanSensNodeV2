@@ -41,7 +41,7 @@ namespace SANSENSNODE_NAMESPACE
          * 
          * @param device 
          */
-        void addDevice(DevicePlugin* device);
+        void addDevice(SensorPlugin* device);
 
         /**
          * @brief called by main sketch
@@ -111,7 +111,7 @@ namespace SANSENSNODE_NAMESPACE
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
 
         // std::vector<DevicePlugin *> _devices;
-        DevicePlugin *_sensorsarr[SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE];
+        SensorPlugin *_sensorsarr[SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE];
 
         uint8_t _sensoridx;
 

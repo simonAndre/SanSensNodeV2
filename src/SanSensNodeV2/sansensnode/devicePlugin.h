@@ -13,17 +13,17 @@ namespace SANSENSNODE_NAMESPACE
      * @brief base class for devices plugins
      * 
      */
-    class DevicePlugin
+    class SensorPlugin
     {
     private:
         SanSensNodeV2 *_sansens_instance;
 
     protected:
-        std::string _devicename;
+        std::string _sensorname;
 
     public:
-         DevicePlugin(const char *devicename);
-        virtual ~DevicePlugin();
+         SensorPlugin(const char *devicename);
+        virtual ~SensorPlugin();
 
         virtual bool collectdata(JsonColl &collector);
 
@@ -35,7 +35,7 @@ namespace SANSENSNODE_NAMESPACE
         virtual void firstSetup();
         virtual void setupdevice(SubMenu &device_menu);
         virtual void onInputMessage(flyingCollection::SanCodedStr &data);
-        virtual const char *getDeviceName();
+        virtual const char *getSensorName();
         void hookSanSensInstance(SanSensNodeV2 *instance);
         virtual SanSensNodeV2* getSanSensInstance();
         bool enabled;

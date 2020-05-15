@@ -47,7 +47,7 @@
 
 namespace sanSensNode
 {
-    using SANSENSNODE_NAMESPACE::DevicePlugin;
+    using SANSENSNODE_NAMESPACE::SensorPlugin;
     using SANSENSNODE_NAMESPACE::JsonColl;
     using SANSENSNODE_NAMESPACE::SanSensNodeV2;
 
