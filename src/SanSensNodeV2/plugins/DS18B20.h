@@ -2,7 +2,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SanSensNodeV2.h>
-#define DS18B20_WAITTIMEMS 0
+#define DS18B20_WAITTIMEMS 1000
 namespace SANSENSNODE_NAMESPACE
 {
     class DS18B20 : public SensorPlugin
@@ -13,8 +13,8 @@ namespace SANSENSNODE_NAMESPACE
         int numberOfDevices;
         // We'll use this variable to store a found device address
         DeviceAddress tempDeviceAddress;
-        void printAddress(DeviceAddress deviceAddress);
         DallasTemperature *sensors;
+        void waitWarmup();
 
     public:
         DS18B20(uint8_t oneWireBus);

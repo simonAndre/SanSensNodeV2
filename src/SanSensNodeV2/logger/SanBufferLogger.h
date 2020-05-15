@@ -13,8 +13,15 @@ template <size_t TBufferSize = (1 * 1024)>
 class SanBufferLogger final : public LoggerBase
 {
 public:
+#ifdef SANSENSNODE_LOG_USEBUFFER
 	/// Default constructor
 	SanBufferLogger() : LoggerBase() {}
+#else
+	SanBufferLogger() : LoggerBase(false, (log_level_e)5, true)
+	{
+	}
+#endif
+
 
 	/** Initialize the circular log buffer with options
 	 *

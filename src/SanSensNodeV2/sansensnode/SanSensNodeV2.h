@@ -24,8 +24,16 @@ namespace SANSENSNODE_NAMESPACE
         /**
          * @brief Construct a new San Sens Node V 2 object
          * 
+         * @param nodename: name for this node
+         * @param ssid: id of wifi network
+         * @param wifipasswd: password of wifi network
+         * @param mqttserver: adress of mqtt server
+         * @param mqtttopicbasename: base path for the mqtt topic
+         * @param lowEnergyMode :true to be as energy efficient as we can at the trade off of the power (runing at 80Mhz...)
+         * @param G : measurement cycle duration ie: sleep time (in seconds) (in awake mode and sleep mode)
+         * @param Pfactor : publication and mqtt connection frequency (in G multiples)
          */
-        SanSensNodeV2();
+        SanSensNodeV2(const char *nodename, const char *ssid, const char *wifipasswd, const char *mqttserver, const char *mqtttopicbasename, int G, int Pfactor);
 
         ~SanSensNodeV2();
 

@@ -3,7 +3,8 @@
 namespace SANSENSNODE_NAMESPACE
 {
 	RTC_DATA_ATTR int _WarmupTime;
-
+	char addstr[16]{'0'};
+	const char *getAddress(DeviceAddress deviceAddress);//forward decl
 
 	DS18B20::DS18B20(uint8_t oneWireBus) : SensorPlugin("DS18B20"), _oneWireBus(oneWireBus)
 	{
@@ -24,11 +25,12 @@ namespace SANSENSNODE_NAMESPACE
 		sensor_menu.addMenuitemUpdater("warmup time (ms)", &_WarmupTime);
 	}
 
+
 	void DS18B20::setupsensor()
 	{
 		logdebug("enter setup DS18B20, bus on PIN%i\n", _oneWireBus);
-		logdebug("wait %ims\n", _WarmupTime);
-		_sansens_instance->waitListeningIOevents(_WarmupTime);
+
+		waitWarmup();
 
 		// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 		OneWire oneWire(_oneWireBus);
@@ -49,13 +51,11 @@ namespace SANSENSNODE_NAMESPACE
 			// Search the wire for address
 			if (sensors->getAddress(tempDeviceAddress, i))
 			{
-				loginfo("Found device %i with address:\n",i);
-				printAddress(tempDeviceAddress);
-				printf("\n");
+				loginfo("Found device %i with address: 0x%s\n", i, getAddress(tempDeviceAddress));
 			}
 			else
 			{
-				logdebug("Found ghost device at %i but could not detect address. Check power and cabling\n", i);
+				loginfo("Found ghost device at %i but could not detect address. Check power and cabling\n", i);
 			}
 		}
 		logdebug("setupdevice DS18B20 done\n");
@@ -65,11 +65,14 @@ namespace SANSENSNODE_NAMESPACE
 	{
 		if (numberOfDevices > 0)
 		{
+			logdebug("collect DS18B20 data on bus-pin:%i\n", _oneWireBus);
+			waitWarmup();
+
 			sensors->requestTemperatures(); // Send the command to get temperatures
 
-			float T2 = sensors->getTempCByIndex(0);
-			float T3 = sensors->getTempCByIndex(1);
-			loginfo("one wire temp1=%f°c, temp2=%f°c\n", T2, T3);
+			// float T2 = sensors->getTempCByIndex(0);
+			// float T3 = sensors->getTempCByIndex(1);
+			// loginfo("one wire temp1=%f°c, temp2=%f°c\n", T2, T3);
 
 			// Loop through each device, print out temperature data
 			for (int i = 0; i < numberOfDevices; i++)
@@ -78,9 +81,9 @@ namespace SANSENSNODE_NAMESPACE
 				if (sensors->getAddress(tempDeviceAddress, i))
 				{
 					float tempC = sensors->getTempC(tempDeviceAddress);
-					loginfo("Temperature for device [%i] : %fc\n", i, tempC);
-					char buf[3];
-					snprintf(buf, 3, "T%i", i);
+					loginfo("Temperature for sub-sensor [%i] : %fc\n", i, tempC);
+					char buf[4];
+					snprintf(buf, 4, "T%i", i);
 					collector.add(buf, tempC);
 				}
 			}
@@ -91,14 +94,28 @@ namespace SANSENSNODE_NAMESPACE
 	{
 	}
 
-	// function to print a device address
-	void DS18B20::printAddress(DeviceAddress deviceAddress)
+	void DS18B20::waitWarmup()
 	{
-		for (uint8_t i = 0; i < 8; i++)
+		if (_WarmupTime > 0)
 		{
-			if (deviceAddress[i] < 16)
-				Serial.print("0");
-			Serial.print(deviceAddress[i], HEX);
+			logdebug("wait for DS18B20 warmup %ims\n", _WarmupTime);
+			_sansens_instance->waitListeningIOevents(_WarmupTime);
 		}
 	}
+
+	// function to convert a device address as string
+	const char *getAddress(DeviceAddress deviceAddress)
+	{
+		uint8_t vi;
+		for (size_t i = 0; i < 8; i++)
+		{
+			if (deviceAddress[i] < 16)
+				vi = 0;
+			else
+				vi = deviceAddress[i];
+			snprintf(&(addstr[2 * i]), 3, "%02X", vi);
+		}
+		return (const char *)addstr;
+	}
+
 } // namespace SANSENSNODE_NAMESPACE
