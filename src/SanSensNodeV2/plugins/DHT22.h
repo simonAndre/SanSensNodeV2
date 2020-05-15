@@ -10,8 +10,7 @@ namespace SANSENSNODE_NAMESPACE
     private:
         uint8_t _dhtpin;
         DHTesp dht;
-        int _dhtWarmupTime ;
-
+     
     public:
         DHT22(uint8_t dhtpin);
         virtual ~DHT22();

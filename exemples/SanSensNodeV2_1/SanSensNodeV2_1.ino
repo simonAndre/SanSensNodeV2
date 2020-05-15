@@ -1,3 +1,4 @@
+#define SANSENSNODE_SKETCHVERSION 0343
 #define ARDUINO 150 //test sAN doit être setté par l'IDE
 
 #define USE_DS18B20
@@ -7,53 +8,41 @@
 
 #include <SanSensNodeV2.h>
 
+
 const uint8_t DHTpin = 4;
 const uint8_t oneWireBus = 5;
+
+#include "NetworkSettings.h" // this optional file contains overrided settings & macro (not pushed on the remote repository)
+
 #define SANSENSNODE_TOUCHPADGPIO 15 // GPIO pin for touchpad wakeup (GPIO 4,0,2,15,13,12,14,27,33,32 only)
-#define G_DURATION 10
-#define P_FACTOR 1
-#define SANSENSNODE_SKETCHVERSION 0341
+#define SANSENSNODE_DEVICE_GDURATION 10
+#define SANSENSNODE_DEVICE_PFACTOR 1
 
-#define LOG_ECHO_EN_DEFAULT 1
+#define SANSENSNODE_LOG_USEBUFFER // if defined : use a buffer, you need to call logflush() to flush the log buffer the logger is available even before the activation of Serial.begin \
+                                  // if not defined : immediate logging
 
-#undef MQTT_MAX_PACKET_SIZE      // un-define max packet size
-#define MQTT_MAX_PACKET_SIZE 250 // fix for MQTT client dropping messages over 128B
-
-//callback to implement if needed
-bool collectdata(JsonColl &collector);
-// void InputMessageAction(flyingCollection::SanCodedStr const &data);
-// void setupdevice(SubMenu &device_menu);
 
 SanSensNodeV2 *_sensorNode;
 
 void setup()
 {
 
-    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151", G_DURATION, P_FACTOR);
+    _sensorNode = new SanSensNodeV2();
     if (_sensorNode->isFirstInit())
     {
-        //todo setter les paramètres wifi
     }
-    // _sensorNode->SetSetupDeviceCallback(setupdevice);       //optional
-    // _sensorNode->SetCollectDataCallback(collectdata);       //optional
 
-    logdebug("add DHT22\n");
     DHT22 *dht = new DHT22(DHTpin);
     _sensorNode->addDevice(dht);
 
-    logdebug("add tetplugin\n");
     TestPlugin *testplugin = new TestPlugin();
     _sensorNode->addDevice(testplugin);
 
-    logdebug("add VoltageProbe\n");
     VoltageProbe *voltage = new VoltageProbe();
     _sensorNode->addDevice(voltage);
 
-    logdebug("add DS18B20\n");
     DS18B20 *ds18b20 = new DS18B20(oneWireBus);
     _sensorNode->addDevice(ds18b20);
-
-    // SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
 
     _sensorNode->Setup();
 

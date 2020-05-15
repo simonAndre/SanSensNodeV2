@@ -2,6 +2,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SanSensNodeV2.h>
+#define DS18B20_WAITTIMEMS 0
 namespace SANSENSNODE_NAMESPACE
 {
     class DS18B20 : public SensorPlugin

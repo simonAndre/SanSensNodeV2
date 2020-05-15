@@ -2,6 +2,8 @@
 #include <Arduino.h>
 namespace SANSENSNODE_NAMESPACE
 {
+	RTC_DATA_ATTR int _dhtWarmupTime;
+
 	DHT22::DHT22(uint8_t dhtpin) : SensorPlugin("DHT22")
 	{
 		this->_dhtpin = dhtpin;
@@ -15,6 +17,7 @@ namespace SANSENSNODE_NAMESPACE
 	{
 		_dhtWarmupTime = DHT_WAITTIMEMS;
 	}
+
 	void DHT22::setMenu(SubMenu &sensor_menu)
 	{
 		SensorPlugin::setMenu(sensor_menu);
@@ -31,8 +34,8 @@ namespace SANSENSNODE_NAMESPACE
 	}
 	bool DHT22::collectdata(JsonColl &collector)
 	{
-		// _sensorNode->waitListeningIOevents(_dhtWarmupTime);
-		delay(_dhtWarmupTime);
+		logdebug("wait %ims\n", _dhtWarmupTime);
+		_sansens_instance->waitListeningIOevents(_dhtWarmupTime);
 
 		TempAndHumidity th = dht.getTempAndHumidity();
 

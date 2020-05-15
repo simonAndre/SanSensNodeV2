@@ -10,16 +10,14 @@ namespace SANSENSNODE_NAMESPACE
 	bool TestPlugin::led1On()
 	{
 		digitalWrite(LED1PIN, HIGH);
-		// getSanSensInstance()->waitListeningIOevents(250);
-		delay(250);
+		_sansens_instance->waitListeningIOevents(250);
 		digitalWrite(LED1PIN, LOW);
 		return false;
 	}
 	bool TestPlugin::led2On()
 	{
 		digitalWrite(LED2PIN, HIGH);
-		delay(250);
-		// getSanSensInstance()->waitListeningIOevents(250);
+		_sansens_instance->waitListeningIOevents(250);
 		digitalWrite(LED2PIN, LOW);
 		return false;
 	}

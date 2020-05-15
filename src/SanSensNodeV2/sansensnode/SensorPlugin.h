@@ -16,11 +16,12 @@ namespace SANSENSNODE_NAMESPACE
     class SensorPlugin
     {
     private:
-        SanSensNodeV2 *_sansens_instance;
 
     protected:
         std::string _sensorname{"XXsensor"};
-        SubMenu* _sensor_menu;
+        SanSensNodeV2 *_sansens_instance;
+        SubMenu *_sensor_menu;
+
     public:
         SensorPlugin(const char *devicename);
         virtual ~SensorPlugin();

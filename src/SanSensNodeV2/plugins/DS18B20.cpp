@@ -2,6 +2,9 @@
 #include <Arduino.h>
 namespace SANSENSNODE_NAMESPACE
 {
+	RTC_DATA_ATTR int _WarmupTime;
+
+
 	DS18B20::DS18B20(uint8_t oneWireBus) : SensorPlugin("DS18B20"), _oneWireBus(oneWireBus)
 	{
 	}
@@ -12,16 +15,21 @@ namespace SANSENSNODE_NAMESPACE
 
 	void DS18B20::firstSetup()
 	{
+		_WarmupTime = DS18B20_WAITTIMEMS;
 	}
 	void DS18B20::setMenu(SubMenu &sensor_menu)
 	{
 		SensorPlugin::setMenu(sensor_menu);
 		//hook up additional menu entries
+		sensor_menu.addMenuitemUpdater("warmup time (ms)", &_WarmupTime);
 	}
 
 	void DS18B20::setupsensor()
 	{
 		logdebug("enter setup DS18B20, bus on PIN%i\n", _oneWireBus);
+		logdebug("wait %ims\n", _WarmupTime);
+		_sansens_instance->waitListeningIOevents(_WarmupTime);
+
 		// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 		OneWire oneWire(_oneWireBus);
 		// Pass our oneWire reference to Dallas Temperature.
