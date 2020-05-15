@@ -10,12 +10,13 @@ namespace SANSENSNODE_NAMESPACE
     private:
         uint8_t _dhtpin;
         DHTesp dht;
-        int _dhtWarmupTime = DHT_WAITTIMEMS;
+        int _dhtWarmupTime ;
 
     public:
         DHT22(uint8_t dhtpin);
         virtual ~DHT22();
         virtual bool collectdata(JsonColl &collector) override;
+        virtual void firstSetup() override;
         virtual void setupdevice(SubMenu &device_menu) override;
         virtual void onInputMessage(flyingCollection::SanCodedStr &data) override;
         void dht_setup();

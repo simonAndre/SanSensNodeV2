@@ -11,13 +11,17 @@ namespace SANSENSNODE_NAMESPACE
 	{
 	}
 
-	void DHT22::setupdevice(SubMenu &device_menu)
+	void DHT22::firstSetup(){
+		_dhtWarmupTime = DHT_WAITTIMEMS;
+	}
+
+		void DHT22::setupdevice(SubMenu &device_menu)
 	{
 		logdebug("enter setupdevice DHT22\n");
 		//hook up additional menu entries
 		// SubMenu *device_menu = _sensorNode->getDeviceMenu();
 		device_menu.addMenuitemUpdater("DHT warmup time (ms)", &_dhtWarmupTime);
-		device_menu.SetLabel("DHT reset")->addLambda([&, this]() { this->dht_setup(); });
+		device_menu.addMenuitem()->SetLabel("DHT reset")->addLambda([&, this]() { this->dht_setup(); });
 		dht_setup();
 		logdebug("setupdevice DHT22 done\n");
 	}

@@ -23,6 +23,12 @@ namespace SANSENSNODE_NAMESPACE
 		digitalWrite(LED2PIN, LOW);
 		return false;
 	}
+
+	void TestPlugin::firstSetup()
+	{
+	}
+
+
 	void TestPlugin::setupdevice(SubMenu &device_menu)
 	{
 		Serial.println("enter setupdevice TestPlugin\n");

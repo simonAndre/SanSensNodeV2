@@ -14,6 +14,9 @@ const uint8_t oneWireBus = 5;
 #define P_FACTOR 1
 #define SANSENSNODE_SKETCHVERSION 0341
 
+#define INSTANTLOGGING
+
+
 #undef MQTT_MAX_PACKET_SIZE      // un-define max packet size
 #define MQTT_MAX_PACKET_SIZE 250 // fix for MQTT client dropping messages over 128B
 
@@ -27,28 +30,29 @@ SanSensNodeV2 *_sensorNode;
 void setup()
 {
 
-    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "", "192.168.2.151", G_DURATION, P_FACTOR);
+    _sensorNode = new SanSensNodeV2("atp1", "serenandre", "moustik77", "192.168.2.151", G_DURATION, P_FACTOR);
     if (_sensorNode->isFirstInit())
     {
+        //todo setter les paramètres wifi
     }
     // _sensorNode->SetSetupDeviceCallback(setupdevice);       //optional
     // _sensorNode->SetCollectDataCallback(collectdata);       //optional
 
-    // Serial.println("add DS18B20\n");
-    // DS18B20 *ds18b20 = new DS18B20(oneWireBus);
-    // _sensorNode->addDevice(ds18b20);
-
-    Serial.println("add DHT22\n");
+    logdebug("add DHT22\n");
     DHT22 *dht = new DHT22(DHTpin);
     _sensorNode->addDevice(dht);
 
-    Serial.println("add tetplugin\n");
+    logdebug("add tetplugin\n");
     TestPlugin *testplugin = new TestPlugin();
     _sensorNode->addDevice(testplugin);
 
-    Serial.println("add VoltageProbe\n");
+    logdebug("add VoltageProbe\n");
     VoltageProbe *voltage = new VoltageProbe();
     _sensorNode->addDevice(voltage);
+
+    logdebug("add DS18B20\n");
+    DS18B20 *ds18b20 = new DS18B20(oneWireBus);
+    _sensorNode->addDevice(ds18b20);
 
     // SanSensNodeV2::SetInputMessageCallback(InputMessageAction);
 

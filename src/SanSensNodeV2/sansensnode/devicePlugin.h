@@ -22,7 +22,7 @@ namespace SANSENSNODE_NAMESPACE
         std::string _devicename;
 
     public:
-        DevicePlugin(const char *devicename);
+         DevicePlugin(const char *devicename);
         virtual ~DevicePlugin();
 
         virtual bool collectdata(JsonColl &collector);
@@ -32,10 +32,13 @@ namespace SANSENSNODE_NAMESPACE
          * 
          * @param device_menu : "device" section submenu, to hook up additional menu entries 
          */
+        virtual void firstSetup();
         virtual void setupdevice(SubMenu &device_menu);
         virtual void onInputMessage(flyingCollection::SanCodedStr &data);
         virtual const char *getDeviceName();
         void hookSanSensInstance(SanSensNodeV2 *instance);
         virtual SanSensNodeV2* getSanSensInstance();
+        bool enabled;
+        const char *enableMenuFunctionName();
     };
 } // namespace SANSENSNODE_NAMESPACE

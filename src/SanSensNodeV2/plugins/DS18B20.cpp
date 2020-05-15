@@ -11,6 +11,10 @@ namespace SANSENSNODE_NAMESPACE
 	{
 	}
 
+	void DS18B20::firstSetup()
+	{
+	}
+
 	void DS18B20::setupdevice(SubMenu &device_menu)
 	{
 		Serial.print("enter setup DS18B20");
@@ -54,34 +58,37 @@ namespace SANSENSNODE_NAMESPACE
 
 	bool DS18B20::collectdata(JsonColl &collector)
 	{
-		sensors->requestTemperatures(); // Send the command to get temperatures
-
-		float T2 = sensors->getTempCByIndex(0);
-		float T3 = sensors->getTempCByIndex(1);
-		loginfo("one wire temp1=%f°c, temp2=%f°c\n", T2, T3);
-
-		// Loop through each device, print out temperature data
-		for (int i = 0; i < numberOfDevices; i++)
+		if (numberOfDevices > 0)
 		{
-			// Search the wire for address
-			if (sensors->getAddress(tempDeviceAddress, i))
+			sensors->requestTemperatures(); // Send the command to get temperatures
+
+			float T2 = sensors->getTempCByIndex(0);
+			float T3 = sensors->getTempCByIndex(1);
+			loginfo("one wire temp1=%f°c, temp2=%f°c\n", T2, T3);
+
+			// Loop through each device, print out temperature data
+			for (int i = 0; i < numberOfDevices; i++)
 			{
-				// Output the device ID
-				Serial.print("Temperature for device: ");
-				Serial.println(i, DEC);
-				// Print the data
-				float tempC = sensors->getTempC(tempDeviceAddress);
-				Serial.print("Temp C: ");
-				Serial.print(tempC);
-				char buf[3];
-				snprintf(buf, 3, "T%i", i);
-				collector.add(buf, tempC);
+				// Search the wire for address
+				if (sensors->getAddress(tempDeviceAddress, i))
+				{
+					// Output the device ID
+					Serial.print("Temperature for device: ");
+					Serial.println(i, DEC);
+					// Print the data
+					float tempC = sensors->getTempC(tempDeviceAddress);
+					Serial.print("Temp C: ");
+					Serial.print(tempC);
+					char buf[3];
+					snprintf(buf, 3, "T%i", i);
+					collector.add(buf, tempC);
+				}
 			}
 		}
 	}
 
-	void DS18B20::onInputMessage(flyingCollection::SanCodedStr &data){
-
+	void DS18B20::onInputMessage(flyingCollection::SanCodedStr &data)
+	{
 	}
 
 	// function to print a device address
@@ -94,4 +101,4 @@ namespace SANSENSNODE_NAMESPACE
 			Serial.print(deviceAddress[i], HEX);
 		}
 	}
-}
+} // namespace SANSENSNODE_NAMESPACE

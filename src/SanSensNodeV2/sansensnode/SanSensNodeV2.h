@@ -11,7 +11,6 @@ tested on ESP32
 #include <PubSubClient.h>
 #include <vector>
 
-#define EXP_NBDEVICESMAX 5
 
 namespace SANSENSNODE_NAMESPACE
 {
@@ -109,16 +108,12 @@ namespace SANSENSNODE_NAMESPACE
         SubMenu *_device_menu;
         SANSENSNODE_NAMESPACE::DeepSleep *_deepsleep;
         uint8_t _measurementAttenmpts;
-        const char *_mqttTopicBaseName{"/ssnet/"};
         const char *_lostTopic{"/ssnet/lost"}; // not implemented : when the sensor has not been initialized, it wait configuration data from this topic
 
+        // std::vector<DevicePlugin *> _devices;
+        DevicePlugin *_sensorsarr[SANSENSNODE_SENSORS_EXP_SENSORSARRSIZE];
 
-
-
-        std::vector<DevicePlugin *> _devices;
-
-        // DevicePlugin *_devicesarr[EXP_NBDEVICESMAX];
-        uint8_t _deviceidx;
+        uint8_t _sensoridx;
 
         bool mqttConnect();
 

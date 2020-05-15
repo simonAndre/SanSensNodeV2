@@ -4,7 +4,6 @@
 
 static uint32_t _timeAtLoopStart;
 
-
 /**
  * @brief based on the circular log buffer plugin with some small added features like time management from start isntant
  * 
@@ -13,11 +12,11 @@ static uint32_t _timeAtLoopStart;
 template <size_t TBufferSize = (1 * 1024)>
 class SanBufferLogger final : public LoggerBase
 {
-  public:
+public:
 	/// Default constructor
-	  SanBufferLogger() : LoggerBase() {}
+	SanBufferLogger() : LoggerBase() {}
 
-	  /** Initialize the circular log buffer with options
+	/** Initialize the circular log buffer with options
 	 *
 	 * @param enable If true, log statements will be output to the log buffer. If false,
 	 * logging will be disabled and log statements will not be output to the log buffer.
@@ -26,10 +25,10 @@ class SanBufferLogger final : public LoggerBase
 	 * @param echo If true, log statements will be logged and printed to the console with printf().
 	 * If false, log statements will only be added to the log buffer.
 	 */
-	  explicit SanBufferLogger(bool enable, log_level_e l = LOG_LEVEL_LIMIT(),
-							   bool echo = LOG_ECHO_EN_DEFAULT) noexcept
-		  : LoggerBase(enable, l, echo)
-	  {
+	explicit SanBufferLogger(bool enable, log_level_e l = LOG_LEVEL_LIMIT(),
+							 bool echo = LOG_ECHO_EN_DEFAULT) noexcept
+		: LoggerBase(enable, l, echo)
+	{
 	}
 
 	/// Default destructor
@@ -45,22 +44,24 @@ class SanBufferLogger final : public LoggerBase
 		return log_buffer_.capacity();
 	}
 
-
-	virtual void log_customprefix() override{
+	virtual void log_customprefix() override
+	{
 		// print("%i ", millis() - _timeAtLoopStart);
 	}
 
 	void flush() noexcept final
 	{
-		while(!log_buffer_.empty())
+#ifndef INSTANTLOGGING
+		while (!log_buffer_.empty())
 		{
 			_putchar(log_buffer_.pop_front());
 		}
+#endif
 	}
 
 	void clear() noexcept final
 	{
-		while(!log_buffer_.empty())
+		while (!log_buffer_.empty())
 		{
 			log_buffer_.pop_front();
 		}
@@ -74,17 +75,18 @@ class SanBufferLogger final : public LoggerBase
 	{
 		// _timeAtLoopStart =millis();
 	}
-	
 
-  protected:
+protected:
 	void log_putc(char c) noexcept final
 	{
+#ifdef INSTANTLOGGING
+		Serial.print(c);
+#else
 		log_buffer_.push_back(c);
+#endif
 	}
 
-
-  private:
+private:
 	char buffer_[TBufferSize] = {0};
 	stdext::ring_span<char> log_buffer_{buffer_, buffer_ + TBufferSize};
 };
-

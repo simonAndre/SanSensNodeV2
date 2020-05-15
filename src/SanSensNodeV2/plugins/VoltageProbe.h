@@ -17,6 +17,7 @@ namespace SANSENSNODE_NAMESPACE
         VoltageProbe();
         virtual ~VoltageProbe();
         virtual bool collectdata(JsonColl &collector) override;
+        virtual void firstSetup() override;
         virtual void setupdevice(SubMenu &device_menu) override;
         virtual void onInputMessage(flyingCollection::SanCodedStr &data) override;
     };

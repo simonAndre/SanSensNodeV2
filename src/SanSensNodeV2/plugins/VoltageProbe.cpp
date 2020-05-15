@@ -28,10 +28,15 @@ namespace SANSENSNODE_NAMESPACE
 		return -0.000000000000016 * pow(reading, 4) + 0.000000000118171 * pow(reading, 3) - 0.000000301211691 * pow(reading, 2) + 0.001109019271794 * reading + 0.034143524634089;
 	}
 
+	void VoltageProbe::firstSetup()
+	{
+		logdebug("firstSetup VoltageProbe\n");
+	}
+
 	void VoltageProbe::setupdevice(SubMenu &device_menu)
 	{
 		logdebug("setupdevice VoltageProbe done\n");
-	}
+		}
 
 	bool VoltageProbe::collectdata(JsonColl &collector)
 	{
